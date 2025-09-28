@@ -4,6 +4,7 @@ import localforage from 'localforage';
 import intervieweeReducer from './intervieweeSlice.js';
 import interviewerReducer from './interviewerSlice.js';
 import uiReducer from './uiSlice.js';
+import settingsReducer from './settingsSlice.js';
 
 localforage.config({
   name: 'ai-interview-assistant',
@@ -14,6 +15,7 @@ const rootReducer = combineReducers({
   interviewee: intervieweeReducer,
   interviewer: interviewerReducer,
   ui: uiReducer,
+  settings: settingsReducer,
 });
 
 const persistConfig = {

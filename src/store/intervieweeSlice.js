@@ -5,11 +5,12 @@ const initialState = {
   inProgress: false,
   paused: false,
   status: 'idle', // idle | in_progress | completed
+  currentStep: 0, // 0: upload resume, 1: verify details, 2: take test, 3: view results
   profile: { name: '', email: '', phone: '' },
   resume: { text: '', fileName: '', fileType: '', fileDataUrl: '' },
   questions: [],
   currentQuestionIndex: 0,
-  answers: [], // { questionId, answer, secondsSpent, score, explanation }
+  answers: [], // { questionId, answer, secondsSpent, score, explanation, isMultipleChoice }
   finalScore: null,
   finalSummary: '',
 };
@@ -17,14 +18,16 @@ const initialState = {
 export const generateQuestions = createAsyncThunk(
   'interviewee/generateQuestions',
   async (_, { getState, rejectWithValue }) => {
-    const { interviewee } = getState();
+    const { interviewee, settings } = getState();
     try {
-      const res = await aiService.generateQuestions({
-        role: 'full-stack engineer',
-        levels: [
-          { level: 'easy', count: 2, seconds: 20 },
-          { level: 'medium', count: 2, seconds: 60 },
-          { level: 'hard', count: 2, seconds: 120 },
+      // Always generate 10 MCQ questions with varying difficulty
+      const res = await aiService.generateMCQQuestions({
+        role: settings.role || 'full-stack engineer',
+        count: 10,
+        questionDistribution: [
+          { level: 'easy', count: 4, seconds: 30 },
+          { level: 'medium', count: 4, seconds: 45 },
+          { level: 'hard', count: 2, seconds: 60 },
         ],
         resumeText: interviewee.resume.text,
       });
@@ -61,6 +64,19 @@ const intervieweeSlice = createSlice({
     setResume(state, action) {
       state.resume = { ...state.resume, ...action.payload };
     },
+    setCurrentStep(state, action) {
+      state.currentStep = action.payload;
+    },
+    nextInterviewStep(state) {
+      if (state.currentStep < 3) {
+        state.currentStep += 1;
+      }
+    },
+    previousInterviewStep(state) {
+      if (state.currentStep > 0) {
+        state.currentStep -= 1;
+      }
+    },
     startInterview(state) {
       state.inProgress = true;
       state.paused = false;
@@ -69,6 +85,7 @@ const intervieweeSlice = createSlice({
       state.answers = [];
       state.finalScore = null;
       state.finalSummary = '';
+      state.currentStep = 2; // Move to the test step
     },
     resumeInterview(state) {
       state.paused = false;
@@ -116,7 +133,7 @@ const intervieweeSlice = createSlice({
       .addCase(generateQuestions.fulfilled, (state, action) => {
         state.questions = action.payload.questions;
       })
-      .addCase(generateQuestions.rejected, (state) => {})
+      .addCase(generateQuestions.rejected, (state) => { })
       .addCase(scoreAnswers.fulfilled, (state, action) => {
         const { perAnswer, totalScore, summary } = action.payload;
         state.finalScore = totalScore;
@@ -139,6 +156,9 @@ export const {
   setQuestions,
   completeInterview,
   resetInterview,
+  setCurrentStep,
+  nextInterviewStep,
+  previousInterviewStep,
 } = intervieweeSlice.actions;
 
 export default intervieweeSlice.reducer;
