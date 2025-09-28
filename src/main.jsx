@@ -9,6 +9,12 @@ import { store, persistor } from "./store/store.js";
 import "antd/dist/reset.css";
 import "./styles.css";
 
+// Debug persisted state
+persistor.subscribe(() => {
+  const state = store.getState();
+  console.log("Redux persist state:", state);
+});
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <Provider store={store}>

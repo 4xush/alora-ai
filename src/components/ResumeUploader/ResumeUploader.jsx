@@ -47,6 +47,19 @@ const ResumeUploader = ({ onParsed }) => {
       >
         <Button icon={<UploadOutlined />}>Select Resume</Button>
       </Upload>
+      <div style={{ marginTop: "10px" }}>
+        <Button
+          size="small"
+          type="link"
+          onClick={() => {
+            console.log("Clearing localStorage");
+            localStorage.clear();
+            window.location.reload();
+          }}
+        >
+          Reset App State
+        </Button>
+      </div>
     </div>
   );
 };

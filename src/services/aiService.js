@@ -88,28 +88,73 @@ export const aiService = {
     // Attempt Gemini; if not configured, return best-effort regex fallback
     const regexFallback = () => {
       console.log("Using regex fallback for resume info extraction");
+      console.log("First 100 chars of resume:", resumeText.substring(0, 100));
+
+      // Extract first line which often contains the name
+      const lines = resumeText.split('\n').filter(line => line.trim().length > 0);
+      const firstLine = lines[0]?.trim() || '';
+
+      // Check if first line looks like a name (no special chars, reasonable length)
+      const isNameLike = (text) => {
+        return text.length > 2 && text.length < 50 &&
+          /^[A-Za-z\s.'-]+$/.test(text) &&
+          !text.includes('@') &&
+          !text.includes('resume') &&
+          !text.includes('cv');
+      };
+
+      let nameFromFirstLine = null;
+      if (isNameLike(firstLine)) {
+        nameFromFirstLine = firstLine;
+        console.log("Extracted name from first line:", nameFromFirstLine);
+      }
+
+      // For the specific resume format we've observed
+      // Look for a pattern like "AYUSH KUMAR  +91-9546053231   •   ayush043b@gmail.com"
+      const fullInfoMatch = resumeText.match(/([A-Z][A-Za-z\s.'-]+)[\s•]*([+\d\-\s()]+)[\s•]*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
+
+      if (fullInfoMatch) {
+        console.log("Found complete resume header match");
+        return {
+          name: fullInfoMatch[1]?.trim(),
+          phone: fullInfoMatch[2]?.trim(),
+          email: fullInfoMatch[3]?.trim(),
+        };
+      }
+
+      // If the combined pattern doesn't work, try individual patterns
 
       // More robust name extraction - look for name patterns or common indicators
-      let nameMatch = resumeText.match(/(?:name|full name|candidate)[:\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})/i) ||
-        resumeText.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})(?:\s*\n|$)/) ||
-        resumeText.match(/([A-Z][a-z]+\s+[A-Z][a-z]+)/);
+      let nameMatch = nameFromFirstLine ? { 1: nameFromFirstLine } :
+        resumeText.match(/^([A-Z][A-Za-z\s.'-]+)(?:\s+[\+\d]|[\s•])/) ||
+        resumeText.match(/(?:name|full name|candidate)[:\s]+([A-Za-z][A-Za-z\s.'-]+)/i) ||
+        resumeText.match(/([A-Za-z][A-Za-z\s.'-]{2,30})(?:\s*\n|$)/) ||
+        resumeText.match(/([A-Za-z]+\s+[A-Za-z]+)/);
 
-      // More robust email extraction
-      const emailMatch = resumeText.match(/(?:e-?mail|contact)[:\s]*([\w.-]+@[\w.-]+\.[A-Za-z]{2,})/i) ||
-        resumeText.match(/([\w.-]+@[\w.-]+\.[A-Za-z]{2,})/);
+      // More robust email extraction with common variations
+      const emailMatch = resumeText.match(/[\s•:|]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/) ||
+        resumeText.match(/(?:e-?mail|e-?mail\s*address|contact)[:\s|]*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i) ||
+        resumeText.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
 
-      // More robust phone extraction
-      const phoneMatch = resumeText.match(/(?:phone|mobile|cell|contact)[:\s]*(\+?\d[\d\s\-().]{7,}\d)/i) ||
-        resumeText.match(/(\+?\d[\d\s\-().]{7,}\d)/);
+      // More robust phone extraction with international formats
+      const phoneMatch = resumeText.match(/([+\d][\d\s\-+()]{7,}\d)[\s•|]/) ||
+        resumeText.match(/(?:phone|mobile|cell|telephone|contact)[:\s|]*([\+\d][\d\s\-+()]{7,}\d)/i) ||
+        resumeText.match(/([\+\d][\d\s\-+()]{7,}\d)/);
 
       // Extract the name from the first capture group if available
       const name = nameMatch ? (nameMatch[1] || nameMatch[0]) : '';
 
-      // For demo purposes, use placeholders if nothing is found
+      console.log("Individual matches:", {
+        name: nameMatch ? nameMatch[1] || nameMatch[0] : null,
+        email: emailMatch ? emailMatch[1] || emailMatch[0] : null,
+        phone: phoneMatch ? phoneMatch[1] || phoneMatch[0] : null
+      });
+
+      // Return extracted info or fallbacks with empty strings instead of defaults
       return {
-        name: name || 'John Doe',
-        email: emailMatch?.[1] || emailMatch?.[0] || 'candidate@example.com',
-        phone: phoneMatch?.[1] || phoneMatch?.[0] || '555-123-4567',
+        name: name || '',
+        email: emailMatch?.[1] || emailMatch?.[0] || '',
+        phone: phoneMatch?.[1] || phoneMatch?.[0] || '',
       };
     };
 

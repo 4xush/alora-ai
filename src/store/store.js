@@ -22,6 +22,7 @@ const persistConfig = {
   key: 'root',
   storage: localforage,
   blacklist: ['ui'],
+  debug: true, // Add debugging for persistence
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
