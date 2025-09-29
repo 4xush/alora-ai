@@ -102,22 +102,41 @@ const InterviewerPage = () => {
     const allAttempts = [];
     candidates.forEach((candidate) => {
       if (candidate.attempts && candidate.attempts.length > 0) {
-        candidate.attempts.forEach((attempt) => {
+        candidate.attempts.forEach((attempt, attemptIndex) => {
+          // Create a stable unique ID if one doesn't exist
+          const stableId =
+            attempt.id ||
+            `${candidate.id}-attempt-${attemptIndex}-${
+              attempt.completedAt || attempt.createdAt || Date.now()
+            }`;
+
           allAttempts.push({
             ...attempt,
+            id: stableId, // Ensure we have a stable ID
             candidateId: candidate.id,
             candidateName: candidate.name,
             candidateEmail: candidate.email,
             candidatePhone: candidate.phone,
             name: candidate.name, // For backward compatibility
             email: candidate.email, // For backward compatibility
-            attemptNumber: attempt.attemptNumber || 1,
+            attemptNumber: attempt.attemptNumber || attemptIndex + 1,
           });
         });
       } else {
         // Backward compatibility for old data structure
+        // Ensure we have a stable ID
+        const stableId =
+          candidate.id ||
+          `candidate-${candidate.email || candidate.name || ""}-${
+            candidate.interviewDate ||
+            candidate.completedAt ||
+            candidate.createdAt ||
+            Date.now()
+          }`;
+
         allAttempts.push({
           ...candidate,
+          id: stableId,
           candidateId: candidate.id,
           candidateName: candidate.name,
           candidateEmail: candidate.email,
@@ -204,14 +223,12 @@ const InterviewerPage = () => {
       sorter: true,
       render: (name, record) => (
         <Space>
-          <Avatar
-            style={{ backgroundColor: record.score ? "#1890ff" : "#f56a00" }}
-          >
+          <Avatar className={record.score ? "bg-blue-500" : "bg-orange-500"}>
             {name ? name.charAt(0).toUpperCase() : <UserOutlined />}
           </Avatar>
           <div>
-            <div style={{ fontWeight: 500 }}>{name || "Anonymous"}</div>
-            <div style={{ fontSize: "12px", color: "rgba(0,0,0,0.45)" }}>
+            <div className="font-medium">{name || "Anonymous"}</div>
+            <div className="text-xs text-gray-500">
               {record.candidateEmail || record.email}
             </div>
           </div>
@@ -285,403 +302,386 @@ const InterviewerPage = () => {
   ];
 
   return (
-    <div className="interviewer-dashboard">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 24,
-        }}
-      >
-        <Title level={2} style={{ margin: 0 }}>
-          Interviewer Dashboard
-        </Title>
-      </div>
+    <div className="min-h-screen ">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden p-8">
+        <div className="flex justify-between items-center mb-6">
+          <Title level={2} className="m-0">
+            Interviewer Dashboard
+          </Title>
+        </div>
 
-      {/* Dashboard Stats */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Total Candidates"
-              value={stats.total}
-              prefix={<TeamOutlined />}
-              valueStyle={{ color: "#1890ff" }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Completed Interviews"
-              value={stats.completed}
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: "#52c41a" }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="In Progress"
-              value={stats.inProgress}
-              prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: "#faad14" }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Average Score"
-              value={stats.avgScore}
-              suffix="%"
-              prefix={<TrophyOutlined />}
-              valueStyle={{
-                color: stats.avgScore >= 70 ? "#52c41a" : "#f5222d",
-              }}
-            />
-            {stats.avgScore > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <Progress
-                  percent={stats.avgScore}
-                  size="small"
-                  status={stats.avgScore >= 70 ? "success" : "exception"}
-                />
-              </div>
-            )}
-          </Card>
-        </Col>
-      </Row>
-
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        style={{ marginBottom: 16 }}
-      >
-        <TabPane
-          tab={
-            <span>
-              <TeamOutlined /> All Candidates
-            </span>
-          }
-          key="1"
-        />
-        <TabPane
-          tab={
-            <span>
-              <CheckCircleOutlined /> Completed
-            </span>
-          }
-          key="2"
-        />
-        <TabPane
-          tab={
-            <span>
-              <ClockCircleOutlined /> In Progress
-            </span>
-          }
-          key="3"
-        />
-      </Tabs>
-
-      {/* Search and Filters */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-        }}
-      >
-        <Input.Search
-          placeholder="Search by name or email"
-          value={search}
-          onChange={(e) => dispatch(setSearch(e.target.value))}
-          style={{ maxWidth: 360 }}
-          prefix={<SearchOutlined />}
-          allowClear
-        />
-        <Space>
-          <Button icon={<FilterOutlined />}>Filter</Button>
-          <Button icon={<SortAscendingOutlined />}>Sort</Button>
-        </Space>
-      </div>
-
-      {/* Candidates Table */}
-      <Card>
-        <Table
-          rowKey={(r) => r.id || Math.random().toString()}
-          columns={columns}
-          dataSource={loading ? [] : data}
-          loading={loading}
-          onChange={(pagination, filters, sorter) => {
-            if (sorter?.field)
-              dispatch(setSort({ key: sorter.field, order: sorter.order }));
-          }}
-          onRow={(r) => ({
-            onClick: () => setSelected(r),
-            style: { cursor: "pointer" },
-          })}
-          pagination={{
-            showSizeChanger: true,
-            defaultPageSize: 10,
-            showTotal: (total) => `Total ${total} candidates`,
-          }}
-          locale={{
-            emptyText: (
-              <Empty
-                description="No candidates found"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
+        {/* Dashboard Stats */}
+        <Row gutter={[16, 16]} className="mb-6">
+          <Col xs={24} sm={12} lg={6}>
+            <Card>
+              <Statistic
+                title="Total Candidates"
+                value={stats.total}
+                prefix={<TeamOutlined />}
+                valueStyle={{ color: "#1890ff" }}
               />
-            ),
-          }}
-        />
-      </Card>
-
-      {/* Candidate Details Drawer */}
-      <Drawer
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        width={800}
-        title={
-          <Space align="center">
-            <Avatar size={48} style={{ backgroundColor: "#1890ff" }}>
-              {selected?.candidateName || selected?.name ? (
-                (selected?.candidateName || selected?.name)
-                  .charAt(0)
-                  .toUpperCase()
-              ) : (
-                <UserOutlined />
-              )}
-            </Avatar>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>
-                {selected?.candidateName || selected?.name || "Candidate"}
-                {selected?.attemptNumber && (
-                  <Tag color="blue" style={{ marginLeft: 8 }}>
-                    Attempt #{selected.attemptNumber}
-                  </Tag>
-                )}
-              </div>
-              <div style={{ fontSize: 14, color: "rgba(0,0,0,0.45)" }}>
-                {selected?.candidateEmail || selected?.email || "No Email"}
-              </div>
-            </div>
-          </Space>
-        }
-        extra={getScoreTag(selected?.score)}
-        footer={
-          <div style={{ textAlign: "right" }}>
-            <Button onClick={() => setSelected(null)}>Close</Button>
-            <Button type="primary" style={{ marginLeft: 8 }}>
-              Export Report
-            </Button>
-          </div>
-        }
-      >
-        {selected && (
-          <>
-            {/* Candidate Overview */}
-            <Card
-              title="Interview Attempt Details"
-              style={{ marginBottom: 16 }}
-            >
-              <Row gutter={[16, 16]}>
-                <Col span={12}>
-                  <Descriptions
-                    bordered
-                    size="small"
-                    column={1}
-                    layout="vertical"
-                  >
-                    <Descriptions.Item label="Name">
-                      {selected.candidateName ||
-                        selected.name ||
-                        "Not Provided"}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Email">
-                      {selected.candidateEmail ||
-                        selected.email ||
-                        "Not Provided"}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Phone">
-                      {selected.candidatePhone ||
-                        selected.phone ||
-                        "Not Provided"}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Attempt">
-                      {selected.attemptNumber
-                        ? `#${selected.attemptNumber}`
-                        : "1"}
-                    </Descriptions.Item>
-                  </Descriptions>
-                </Col>
-                <Col span={12}>
-                  <Descriptions
-                    bordered
-                    size="small"
-                    column={1}
-                    layout="vertical"
-                  >
-                    <Descriptions.Item label="Interview Date">
-                      {selected.interviewDate
-                        ? new Date(selected.interviewDate).toLocaleString()
-                        : selected.completedAt
-                        ? new Date(selected.completedAt).toLocaleString()
-                        : selected.createdAt
-                        ? new Date(selected.createdAt).toLocaleString()
-                        : "Not Available"}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Status">
-                      {getStatusBadge(selected.status)}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Score">
-                      {selected.score !== null &&
-                      selected.score !== undefined ? (
-                        <Progress
-                          type="circle"
-                          percent={selected.score}
-                          width={40}
-                          format={(percent) => `${percent}%`}
-                          status={
-                            selected.score >= 70
-                              ? "success"
-                              : selected.score >= 40
-                              ? "normal"
-                              : "exception"
-                          }
-                        />
-                      ) : (
-                        "Not Scored"
-                      )}
-                    </Descriptions.Item>
-                  </Descriptions>
-                </Col>
-              </Row>
             </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card>
+              <Statistic
+                title="Completed Interviews"
+                value={stats.completed}
+                prefix={<CheckCircleOutlined />}
+                valueStyle={{ color: "#52c41a" }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card>
+              <Statistic
+                title="In Progress"
+                value={stats.inProgress}
+                prefix={<ClockCircleOutlined />}
+                valueStyle={{ color: "#faad14" }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card>
+              <Statistic
+                title="Average Score"
+                value={stats.avgScore || "N/A"}
+                prefix={<TrophyOutlined />}
+                valueStyle={{
+                  color: stats.avgScore >= 70 ? "#52c41a" : "#f5222d",
+                }}
+              />
+              {stats.avgScore > 0 && (
+                <div className="mt-2.5">
+                  <Progress
+                    percent={stats.avgScore}
+                    size="small"
+                    status={stats.avgScore >= 70 ? "success" : "exception"}
+                  />
+                </div>
+              )}
+            </Card>
+          </Col>
+        </Row>
 
-            {/* Interview Performance */}
-            <Card title="Interview Performance" style={{ marginBottom: 16 }}>
-              {selected.summary ? (
-                <Paragraph>{selected.summary}</Paragraph>
-              ) : (
+        <Tabs activeKey={activeTab} onChange={setActiveTab} className="mb-4">
+          <TabPane
+            tab={
+              <span>
+                <TeamOutlined /> All Candidates
+              </span>
+            }
+            key="1"
+          />
+          <TabPane
+            tab={
+              <span>
+                <CheckCircleOutlined /> Completed
+              </span>
+            }
+            key="2"
+          />
+          <TabPane
+            tab={
+              <span>
+                <ClockCircleOutlined /> In Progress
+              </span>
+            }
+            key="3"
+          />
+        </Tabs>
+
+        {/* Search and Filters */}
+        <div className="flex justify-between items-center mb-4">
+          <Input.Search
+            placeholder="Search by name or email"
+            value={search}
+            onChange={(e) => dispatch(setSearch(e.target.value))}
+            className="max-w-xs"
+            prefix={<SearchOutlined />}
+            allowClear
+          />
+          <Space>
+            <Button icon={<FilterOutlined />}>Filter</Button>
+            <Button icon={<SortAscendingOutlined />}>Sort</Button>
+          </Space>
+        </div>
+
+        {/* Candidates Table */}
+        <Card>
+          <Table
+            rowKey={(r) => {
+              // Create a stable unique key based on multiple properties
+              if (r.id) return r.id;
+
+              // Use a combination of properties to create a unique identifier
+              const candidateKey = r.candidateId || "";
+              const email = r.candidateEmail || r.email || "";
+              const attemptNum = r.attemptNumber || "1";
+              const timestamp =
+                r.interviewDate || r.completedAt || r.createdAt || "";
+
+              // Create a stable composite key
+              return `${candidateKey}-${email}-${attemptNum}-${timestamp}`.replace(
+                /\s+/g,
+                ""
+              );
+            }}
+            columns={columns}
+            dataSource={loading ? [] : data}
+            loading={loading}
+            onChange={(pagination, filters, sorter) => {
+              if (sorter?.field)
+                dispatch(setSort({ key: sorter.field, order: sorter.order }));
+            }}
+            onRow={(r) => ({
+              onClick: () => setSelected(r),
+              style: { cursor: "pointer" },
+            })}
+            pagination={{
+              showSizeChanger: true,
+              defaultPageSize: 10,
+              showTotal: (total) => `Total ${total} candidates`,
+            }}
+            locale={{
+              emptyText: (
                 <Empty
-                  description="No summary available"
+                  description="No candidates found"
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                 />
-              )}
-            </Card>
+              ),
+            }}
+          />
+        </Card>
 
-            <Tabs defaultActiveKey="1">
-              <TabPane
-                tab={
-                  <span>
-                    <FileTextOutlined /> Resume
-                  </span>
-                }
-                key="1"
-              >
-                <Card>
-                  <Alert
-                    message="Resume Content"
-                    description="This is the extracted text content from the candidate's resume. Formatting may differ from the original document."
-                    type="info"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                  />
-
-                  <div
-                    style={{
-                      whiteSpace: "pre-wrap",
-                      background: "#fafafa",
-                      padding: 16,
-                      border: "1px solid #f0f0f0",
-                      borderRadius: 4,
-                      minHeight: 200,
-                      maxHeight: 400,
-                      overflow: "auto",
-                      fontFamily: "monospace",
-                      fontSize: "13px",
-                      lineHeight: "1.5",
-                    }}
-                  >
-                    {selected.resumeText || "No resume text available."}
-                  </div>
-                </Card>
-              </TabPane>
-
-              <TabPane
-                tab={
-                  <span>
-                    <InfoCircleOutlined /> Interview Questions
-                  </span>
-                }
-                key="2"
-              >
-                <Card>
-                  {selected.transcript && selected.transcript.length > 0 ? (
-                    selected.transcript.map((t, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          marginBottom: 24,
-                          borderBottom:
-                            i < selected.transcript.length - 1
-                              ? "1px solid #f0f0f0"
-                              : "none",
-                          paddingBottom: 16,
-                        }}
-                      >
-                        <div style={{ marginBottom: 8 }}>
-                          <Text strong style={{ fontSize: 16 }}>
-                            Q{i + 1}: {t.q}
-                          </Text>
-                        </div>
-                        <div
-                          style={{
-                            background: "#f9f9f9",
-                            padding: 12,
-                            borderRadius: 4,
-                            marginBottom: 8,
-                          }}
-                        >
-                          <Text>{t.a || "No answer provided"}</Text>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <Tag
-                            color={
-                              t.score >= 8
-                                ? "green"
-                                : t.score >= 5
-                                ? "orange"
-                                : "red"
-                            }
-                          >
-                            Score: {t.score !== undefined ? t.score : "N/A"}/10
-                          </Tag>
-                          <Text type="secondary">
-                            {t.explanation || "No feedback available"}
-                          </Text>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <Empty description="No interview transcript available" />
+        {/* Candidate Details Drawer */}
+        <Drawer
+          open={!!selected}
+          onClose={() => setSelected(null)}
+          width={800}
+          title={
+            <Space align="center">
+              <Avatar size={48} className="bg-blue-500">
+                {selected?.candidateName || selected?.name ? (
+                  (selected?.candidateName || selected?.name)
+                    .charAt(0)
+                    .toUpperCase()
+                ) : (
+                  <UserOutlined />
+                )}
+              </Avatar>
+              <div>
+                <div className="text-lg font-semibold">
+                  {selected?.candidateName || selected?.name || "Candidate"}
+                  {selected?.attemptNumber && (
+                    <Tag color="blue" className="ml-2">
+                      Attempt #{selected.attemptNumber}
+                    </Tag>
                   )}
-                </Card>
-              </TabPane>
-            </Tabs>
-          </>
-        )}
-      </Drawer>
+                </div>
+                <div className="text-sm text-gray-500">
+                  {selected?.candidateEmail || selected?.email || "No Email"}
+                </div>
+              </div>
+            </Space>
+          }
+          extra={getScoreTag(selected?.score)}
+          footer={
+            <div className="text-right">
+              <Button onClick={() => setSelected(null)}>Close</Button>
+              <Button type="primary" className="ml-2">
+                Export Report
+              </Button>
+            </div>
+          }
+        >
+          {selected && (
+            <>
+              {/* Candidate Overview */}
+              <Card title="Interview Attempt Details" className="mb-4">
+                <Row gutter={[16, 16]}>
+                  <Col span={12}>
+                    <Descriptions
+                      bordered
+                      size="small"
+                      column={1}
+                      layout="vertical"
+                    >
+                      <Descriptions.Item label="Name">
+                        {selected.candidateName ||
+                          selected.name ||
+                          "Not Provided"}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Email">
+                        {selected.candidateEmail ||
+                          selected.email ||
+                          "Not Provided"}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Phone">
+                        {selected.candidatePhone ||
+                          selected.phone ||
+                          "Not Provided"}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Attempt">
+                        {selected.attemptNumber
+                          ? `#${selected.attemptNumber}`
+                          : "1"}
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </Col>
+                  <Col span={12}>
+                    <Descriptions
+                      bordered
+                      size="small"
+                      column={1}
+                      layout="vertical"
+                    >
+                      <Descriptions.Item label="Interview Date">
+                        {selected.interviewDate
+                          ? new Date(selected.interviewDate).toLocaleString()
+                          : selected.completedAt
+                          ? new Date(selected.completedAt).toLocaleString()
+                          : selected.createdAt
+                          ? new Date(selected.createdAt).toLocaleString()
+                          : "Not Available"}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Status">
+                        {getStatusBadge(selected.status)}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Score">
+                        {selected.score !== null &&
+                        selected.score !== undefined ? (
+                          <Progress
+                            type="circle"
+                            percent={selected.score}
+                            width={40}
+                            format={(percent) => `${percent}%`}
+                            status={
+                              selected.score >= 70
+                                ? "success"
+                                : selected.score >= 40
+                                ? "normal"
+                                : "exception"
+                            }
+                          />
+                        ) : (
+                          "Not Scored"
+                        )}
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </Col>
+                </Row>
+              </Card>
+
+              {/* Interview Performance */}
+              <Card title="Interview Performance" style={{ marginBottom: 16 }}>
+                {selected.summary ? (
+                  <Paragraph>{selected.summary}</Paragraph>
+                ) : (
+                  <Empty
+                    description="No summary available"
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  />
+                )}
+              </Card>
+
+              <Tabs defaultActiveKey="1">
+                <TabPane
+                  tab={
+                    <span>
+                      <FileTextOutlined /> Resume
+                    </span>
+                  }
+                  key="1"
+                >
+                  <Card>
+                    <Alert
+                      message="Resume Content"
+                      description="This is the extracted text content from the candidate's resume. Formatting may differ from the original document."
+                      type="info"
+                      showIcon
+                      className="mb-4"
+                    />
+
+                    <div className="whitespace-pre-wrap bg-gray-50 p-4 border border-gray-200 rounded min-h-[200px] max-h-[400px] overflow-auto font-mono text-sm leading-normal">
+                      {selected.resumeText || "No resume text available."}
+                    </div>
+                  </Card>
+                </TabPane>
+
+                <TabPane
+                  tab={
+                    <span>
+                      <InfoCircleOutlined /> Interview Questions
+                    </span>
+                  }
+                  key="2"
+                >
+                  <Card>
+                    {selected.transcript && selected.transcript.length > 0 ? (
+                      selected.transcript.map((t, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            marginBottom: 24,
+                            borderBottom:
+                              i < selected.transcript.length - 1
+                                ? "1px solid #f0f0f0"
+                                : "none",
+                            paddingBottom: 16,
+                          }}
+                        >
+                          <div style={{ marginBottom: 8 }}>
+                            <Text strong style={{ fontSize: 16 }}>
+                              Q{i + 1}: {t.q}
+                            </Text>
+                          </div>
+                          <div
+                            style={{
+                              background: "#f9f9f9",
+                              padding: 12,
+                              borderRadius: 4,
+                              marginBottom: 8,
+                            }}
+                          >
+                            <Text>{t.a || "No answer provided"}</Text>
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <Tag
+                              color={
+                                t.score >= 8
+                                  ? "green"
+                                  : t.score >= 5
+                                  ? "orange"
+                                  : "red"
+                              }
+                            >
+                              Score: {t.score !== undefined ? t.score : "N/A"}
+                              /10
+                            </Tag>
+                            <Text type="secondary">
+                              {t.explanation || "No feedback available"}
+                            </Text>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <Empty description="No interview transcript available" />
+                    )}
+                  </Card>
+                </TabPane>
+              </Tabs>
+            </>
+          )}
+        </Drawer>
+      </div>
     </div>
   );
 };

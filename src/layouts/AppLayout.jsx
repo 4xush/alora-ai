@@ -1,12 +1,46 @@
-import React from "react";
+import React, { useState } from "react";
 import { Layout, Dropdown, Space, Button } from "antd";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { Brain, Home } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
-import { Brain } from "lucide-react";
+
 const { Header, Content } = Layout;
 
-const InterviewerLayout = () => {
+/**
+ * AppLayout - Unified layout component for both interviewer and interviewee views
+ * @param {Object} props
+ * @param {string} props.userRole - 'interviewer' or 'interviewee'
+ */
+const AppLayout = ({ userRole = "interviewee" }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useDispatch();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Automatically detect the user role from the URL if not explicitly provided
+  const detectedRole = location.pathname.includes("/interviewer")
+    ? "interviewer"
+    : location.pathname.includes("/interviewee")
+    ? "interviewee"
+    : userRole;
+
+  const isInterviewer = detectedRole === "interviewer";
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  // Menu items based on role
+  const menuItems = [
+    {
+      key: "home",
+      label: "Back to Home",
+      onClick: () => navigate("/"),
+      icon: <Home className="w-3 h-3" />,
+    },
+    // Add more role-specific menu items if needed
+  ];
 
   return (
     <Layout className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50">
@@ -25,29 +59,26 @@ const InterviewerLayout = () => {
             </span>
           </div>
 
-          {/* Keep the original dropdown */}
+          {/* User Menu */}
           <Space>
             <Dropdown
+              open={isMenuOpen}
+              onOpenChange={setIsMenuOpen}
               menu={{
-                items: [
-                  {
-                    key: "home",
-                    label: "Back to Home",
-                    onClick: () => navigate("/"),
-                  },
-                ],
+                items: menuItems,
               }}
             >
-              <Button type="text">
+              <Button type="text" onClick={toggleMenu}>
                 <Space>
                   <UserOutlined />
-                  Interviewer
+                  {isInterviewer ? "Interviewer" : "Interviewee"}
                 </Space>
               </Button>
             </Dropdown>
           </Space>
         </div>
       </Header>
+
       {/* Main Content */}
       <Layout>
         <Content className="container mx-auto">
@@ -58,4 +89,4 @@ const InterviewerLayout = () => {
   );
 };
 
-export default InterviewerLayout;
+export default AppLayout;

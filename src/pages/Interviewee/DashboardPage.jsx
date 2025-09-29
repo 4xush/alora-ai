@@ -12,8 +12,6 @@ import {
   Statistic,
   Tag,
   Badge,
-  Tooltip,
-  Alert,
   Spin,
 } from "antd";
 import {
@@ -103,7 +101,7 @@ const DashboardPage = () => {
   }
 
   const latestInterviewData = getLatestInterviewData();
-
+  console.log("Latest Interview Data:", latestInterviewData);
   return (
     <div className="p-8">
       <Row gutter={[24, 24]}>
@@ -122,16 +120,6 @@ const DashboardPage = () => {
                     ? " Your profile is ready."
                     : " Start by uploading your resume."}
                 </Paragraph>
-              </Col>
-              <Col xs={24} md={8} className="text-right">
-                <Button
-                  type="primary"
-                  size="large"
-                  icon={<FileAddOutlined />}
-                  onClick={handleStartNewInterview}
-                >
-                  Start New Interview
-                </Button>
               </Col>
             </Row>
           </Card>
