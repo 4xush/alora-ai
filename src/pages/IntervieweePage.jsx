@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { Brain, Clock, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { message } from "antd";
 import { store } from "../store/store.js";
 import { aiService } from "../services/aiService.js";
@@ -35,7 +36,6 @@ const IntervieweePage = () => {
   const profile = useSelector(selectProfile);
   const resume = useSelector(selectResume);
   const pastInterviews = useSelector(selectPastInterviews);
-  const currentInterview = useSelector(selectCurrentInterview);
 
   const {
     inProgress,
@@ -509,77 +509,138 @@ const IntervieweePage = () => {
   // Show global loading for critical operations
   const globalLoading = isGeneratingQuestions || isScoringAnswers;
 
-  return (
-    <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px" }}>
-      {/* Global Loading Overlay */}
-      {globalLoading && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(255, 255, 255, 0.9)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-          }}
-        >
-          <div style={{ textAlign: "center" }}>
-            <div
-              style={{
-                fontSize: "18px",
-                fontWeight: "bold",
-                marginBottom: "16px",
-              }}
-            >
-              {isGeneratingQuestions &&
-                "Preparing your personalized interview..."}
-              {isScoringAnswers && "Evaluating your answers..."}
-            </div>
-            <div style={{ fontSize: "14px", color: "#666" }}>
-              {isGeneratingQuestions &&
-                "This may take a moment while we analyze your resume."}
-              {isScoringAnswers &&
-                "Please wait while we calculate your final score."}
+  // Loading Overlay Component
+  const LoadingOverlay = ({ isVisible, title, subtitle, icon: Icon }) => {
+    if (!isVisible) return null;
+
+    return (
+      <div className="fixed inset-0 bg-white/95 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-4">
+          <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse">
+            <Icon className="w-10 h-10 text-white" />
+          </div>
+
+          <h3 className="text-2xl font-bold text-slate-800 mb-3">{title}</h3>
+          <p className="text-slate-600 leading-relaxed">{subtitle}</p>
+
+          <div className="flex items-center justify-center mt-8">
+            <div className="flex space-x-1">
+              {[...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
             </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  };
 
-      {/* Main Content */}
-      {showDashboard ? (
-        <ErrorBoundary onReset={() => window.location.reload()}>
-          <div id="interviewee-dashboard-container">
-            <IntervieweeDashboard
-              key={`dashboard-${!!resume?.text}-${!!profile?.name}-${
-                pastInterviews?.length || 0
-              }-${Date.now()}`}
-              onStartNewInterview={handleStartNewInterview}
-              onViewResults={handleViewResults}
-            />
-          </div>
-        </ErrorBoundary>
-      ) : (
-        <ErrorBoundary onReset={handleBackToDashboard}>
-          <div id="interview-flow-container">
-            <InterviewFlow
-              key={`interview-flow-${currentStep}-${!!resume?.text}-${Date.now()}`}
-              onStart={handleStartInterview}
-              onAnswer={handleAnswerSubmit}
-              onComplete={handleInterviewComplete}
-              onResumeParsed={handleResumeParsed}
-              onBackToDashboard={handleBackToDashboard}
-              error={error}
-              loading={loading}
-              progress={progress}
-            />
-          </div>
-        </ErrorBoundary>
-      )}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50">
+      <div className="container mx-auto px-6 py-2 max-w-7xl">
+        {/* Loading Overlays */}
+        <LoadingOverlay
+          isVisible={isGeneratingQuestions}
+          title="Preparing Your Interview"
+          subtitle="We're analyzing your resume and creating personalized questions tailored to your experience. This may take a moment."
+          icon={Brain}
+        />
+
+        <LoadingOverlay
+          isVisible={isScoringAnswers}
+          title="Evaluating Your Performance"
+          subtitle="Our AI is carefully reviewing your answers and calculating your final score. Please wait while we process your results."
+          icon={CheckCircle2}
+        />
+
+        {/* Main Content Container */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          {showDashboard ? (
+            <ErrorBoundary onReset={() => window.location.reload()}>
+              <div className="p-8">
+                <IntervieweeDashboard
+                  key={`dashboard-${!!resume?.text}-${!!profile?.name}-${
+                    pastInterviews?.length || 0
+                  }-${Date.now()}`}
+                  onStartNewInterview={handleStartNewInterview}
+                  onViewResults={handleViewResults}
+                />
+              </div>
+            </ErrorBoundary>
+          ) : (
+            <ErrorBoundary onReset={handleBackToDashboard}>
+              <div className="min-h-[600px]">
+                {/* Progress Header */}
+                {currentStep > 0 && questions.length > 0 && (
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-slate-200 px-8 py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                          <Clock className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-slate-800">
+                            Interview in Progress
+                          </h3>
+                          <p className="text-sm text-slate-600">
+                            Question {currentQuestionIndex + 1} of{" "}
+                            {questions.length}
+                          </p>
+                        </div>
+                      </div>
+
+                      {progress > 0 && (
+                        <div className="flex items-center space-x-3">
+                          <div className="w-32 bg-slate-200 rounded-full h-2">
+                            <div
+                              className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-semibold text-slate-700">
+                            {progress}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Error Display */}
+                {error && (
+                  <div className="bg-red-50 border-l-4 border-red-400 p-4 mx-8 mt-4">
+                    <div className="flex items-center">
+                      <AlertCircle className="w-5 h-5 text-red-400 mr-3" />
+                      <div>
+                        <p className="text-sm text-red-800">{error}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Interview Flow */}
+                <div className="p-8">
+                  <InterviewFlow
+                    key={`interview-flow-${currentStep}-${!!resume?.text}-${Date.now()}`}
+                    onStart={handleStartInterview}
+                    onAnswer={handleAnswerSubmit}
+                    onComplete={handleInterviewComplete}
+                    onResumeParsed={handleResumeParsed}
+                    onBackToDashboard={handleBackToDashboard}
+                    error={error}
+                    loading={loading}
+                    progress={progress}
+                  />
+                </div>
+              </div>
+            </ErrorBoundary>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

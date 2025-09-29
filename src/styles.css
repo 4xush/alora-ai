@@ -1,2 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Keep your existing custom CSS */
 html, body, #root { height: 100%; }
 .ant-layout { background: #fff; }
+
+/* Custom utility classes */
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}

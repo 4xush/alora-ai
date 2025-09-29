@@ -28,7 +28,6 @@ import {
   ClockCircleOutlined,
   EyeOutlined,
   CalendarOutlined,
-  PercentageOutlined,
   QuestionCircleOutlined,
 } from "@ant-design/icons";
 import {
@@ -88,15 +87,15 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
   // Get display data for latest interview
   const getLatestInterviewData = () => {
     if (status === "completed" && finalScore !== null) {
-      // Current completed interview - highest priority
+      // Current completed interview
       return {
         score: finalScore,
         summary: finalSummary,
         date: new Date().toISOString(),
         isCurrentSession: true,
       };
-    } else if (latestInterview && latestInterview.finalScore !== null) {
-      // Most recent past interview with a score
+    } else if (latestInterview) {
+      // Most recent past interview
       return {
         score: latestInterview.finalScore,
         summary: latestInterview.finalSummary,
@@ -350,7 +349,6 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
                 title="Average Score"
                 value={stats.averageScore}
                 suffix="%"
-                prefix={<PercentageOutlined />}
                 valueStyle={{
                   color: stats.averageScore >= 60 ? "#3f8600" : "#cf1322",
                 }}
