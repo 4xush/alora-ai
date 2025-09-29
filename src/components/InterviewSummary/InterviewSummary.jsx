@@ -51,8 +51,8 @@ const InterviewSummary = ({ score, summary, onComplete }) => {
   const pastInterviews = useSelector(selectPastInterviews);
   const latestInterview = useSelector(selectLatestInterview);
 
-  // Local state
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  // Local state - initialize report data immediately to avoid loading flicker
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false); // Keep for backward compatibility but don't use for loading
   const [reportData, setReportData] = useState(null);
 
   // Calculate performance metrics
@@ -60,7 +60,7 @@ const InterviewSummary = ({ score, summary, onComplete }) => {
     if (!questions.length || !answers.length) return null;
 
     const answeredQuestions = answers.filter(
-      (answer) => answer.answer && answer.answer.trim() !== "",
+      (answer) => answer.answer && answer.answer.trim() !== ""
     );
     const correctAnswers = answers.filter((answer) => answer.score >= 8);
     const averageTime =
@@ -88,11 +88,11 @@ const InterviewSummary = ({ score, summary, onComplete }) => {
       answeredQuestions: answeredQuestions.length,
       correctAnswers: correctAnswers.length,
       accuracyPercent: Math.round(
-        (correctAnswers.length / questions.length) * 100,
+        (correctAnswers.length / questions.length) * 100
       ),
       averageTime: Math.round(averageTime),
       completionRate: Math.round(
-        (answeredQuestions.length / questions.length) * 100,
+        (answeredQuestions.length / questions.length) * 100
       ),
       difficultyStats,
     };
@@ -112,34 +112,62 @@ const InterviewSummary = ({ score, summary, onComplete }) => {
 
   const performance = score ? getPerformanceLevel(score) : null;
 
-  // Generate detailed report
+  // Generate detailed report - immediately without loading state
   useEffect(() => {
     if (score && questions.length && answers.length) {
-      setIsGeneratingReport(true);
-      setTimeout(() => {
-        setReportData({
-          completedAt: new Date().toISOString(),
-          duration: metrics?.averageTime * questions.length || 0,
-          interviewId: currentInterviewId || "unknown",
-        });
-        setIsGeneratingReport(false);
-      }, 1000);
+      // Generate report data immediately without setting loading state
+      setReportData({
+        completedAt: new Date().toISOString(),
+        duration: metrics?.averageTime * questions.length || 0,
+        interviewId: currentInterviewId || "unknown",
+      });
     }
   }, [score, questions, answers, metrics, currentInterviewId]);
 
   // Event handlers
   const handleBackToDashboard = () => {
-    if (onComplete) {
-      onComplete();
+    console.log("InterviewSummary: Explicitly navigating back to dashboard");
+
+    // Clear any pending state updates
+    const currentIsGeneratingReport = isGeneratingReport;
+    if (currentIsGeneratingReport) {
+      console.log(
+        "InterviewSummary: Cancelling report generation before navigation"
+      );
+      setIsGeneratingReport(false);
     }
+
+    // Reset the step before navigating back
+    dispatch(setCurrentStep(0));
+
+    // Use a delay to ensure redux state updates before navigation
+    setTimeout(() => {
+      // Call the onComplete callback to signal the parent component
+      if (onComplete) {
+        console.log(
+          "InterviewSummary: Calling onComplete to return to dashboard"
+        );
+        onComplete();
+      }
+    }, 50);
   };
 
   const handleStartNewInterview = () => {
+    console.log("InterviewSummary: Starting new interview");
+
+    // Clear any pending state updates first
+    setIsGeneratingReport(false);
+
+    // Reset the interview state
     dispatch(resetInterview());
     dispatch(setCurrentStep(0));
-    if (onComplete) {
-      onComplete();
-    }
+
+    // Notify parent with a slight delay to ensure state is updated
+    setTimeout(() => {
+      if (onComplete) {
+        onComplete();
+      }
+    }, 0);
   };
 
   const handleDownloadReport = () => {
@@ -183,23 +211,23 @@ Time Spent: ${answer.secondsSpent || 0} seconds
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `interview-results-${new Date().toISOString().split("T")[0]}.txt`;
+    a.download = `interview-results-${
+      new Date().toISOString().split("T")[0]
+    }.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  // Loading state
-  if (loading || isGeneratingReport) {
+  // Loading state - only show for actual loading, not report generation
+  if (loading) {
     return (
       <Card>
         <div style={{ textAlign: "center", padding: "40px 0" }}>
           <Spin size="large" />
           <div style={{ marginTop: 16 }}>
-            <Text>
-              {loading ? "Calculating your results..." : "Generating report..."}
-            </Text>
+            <Text>Calculating your results...</Text>
           </div>
         </div>
       </Card>
@@ -420,8 +448,8 @@ Time Spent: ${answer.secondsSpent || 0} seconds
                           question.level === "easy"
                             ? "green"
                             : question.level === "hard"
-                              ? "red"
-                              : "orange"
+                            ? "red"
+                            : "orange"
                         }
                       >
                         {question.level || "medium"}
@@ -511,8 +539,9 @@ Time Spent: ${answer.secondsSpent || 0} seconds
               size="large"
               icon={<HomeOutlined />}
               onClick={handleBackToDashboard}
+              id="return-to-dashboard-btn"
             >
-              Back to Dashboard
+              Return to Dashboard
             </Button>
 
             <Button

@@ -35,7 +35,10 @@ const InterviewFlow = ({
   onStart,
   onComplete,
   onResumeParsed,
+  onBackToDashboard,
   error: externalError,
+  loading: externalLoading,
+  progress: externalProgress,
 }) => {
   const dispatch = useDispatch();
   const {
@@ -51,6 +54,7 @@ const InterviewFlow = ({
     loading,
     error: reduxError,
     status,
+    inProgress,
   } = useSelector((s) => s.interviewee);
 
   // Form instance for profile verification
@@ -63,18 +67,54 @@ const InterviewFlow = ({
 
   // Calculate progress
   const progress = Math.round(
-    ((answers.length || 0) / Math.max(questions.length || 1, 1)) * 100,
+    ((answers.length || 0) / Math.max(questions.length || 1, 1)) * 100
   );
 
-  // Sync form values with Redux profile
+  // Sync form values with Redux profile - only when on the profile step
   useEffect(() => {
-    console.log("Syncing form with profile:", profile);
-    form.setFieldsValue({
-      name: profile.name || "",
-      email: profile.email || "",
-      phone: profile.phone || "",
+    // Only sync form when we're on the profile step (step 1) and interview isn't completed
+    if (currentStep === 1 && status !== "completed") {
+      console.log("Syncing form with profile:", profile);
+      form.setFieldsValue({
+        name: profile.name || "",
+        email: profile.email || "",
+        phone: profile.phone || "",
+      });
+    }
+  }, [profile, form, currentStep, status]);
+
+  // Component initialization
+  useEffect(() => {
+    console.log("InterviewFlow: COMPONENT MOUNTED");
+  }, []);
+
+  // Debug when component mounts or step changes
+  useEffect(() => {
+    console.log("InterviewFlow: Current step changed or component mounted", {
+      currentStep,
+      hasResume: !!resume?.text,
+      resumeFileName: resume?.fileName || "none",
+      inProgress: inProgress || false,
+      status,
     });
-  }, [profile, form]);
+
+    // If we have no resume and we're on step 1, go back to step 0
+    if (currentStep === 1 && !resume?.text) {
+      console.log(
+        "InterviewFlow: No resume but on step 1, redirecting to step 0"
+      );
+      dispatch(setCurrentStep(0));
+    }
+
+    // If we're just starting the interview flow, ensure inProgress is true
+    if (!inProgress && currentStep === 0) {
+      console.log("InterviewFlow: Starting interview flow");
+      // We don't actually need to dispatch startInterview here, just make sure step is correct
+      if (!resume?.text && currentStep !== 0) {
+        dispatch(setCurrentStep(0));
+      }
+    }
+  }, [currentStep, resume, inProgress, status, dispatch]);
 
   // Handle resume parsing
   const handleResumeParsed = async (text, fileMeta) => {
@@ -173,8 +213,52 @@ const InterviewFlow = ({
 
   // Render step content
   const renderStepContent = () => {
+    console.log("InterviewFlow: Rendering content for step", currentStep, {
+      hasResumeText: !!resume?.text,
+      hasProfileName: !!profile?.name,
+      hasEmail: !!profile?.email,
+      status,
+      inProgress,
+      questionsCount: questions?.length || 0,
+      resumeFileName: resume?.fileName || "none",
+    });
+
+    // Validate step requirements
+    if (currentStep === 1 && !resume?.text) {
+      console.warn(
+        "InterviewFlow: On step 1 without resume, redirecting to step 0"
+      );
+      setTimeout(() => dispatch(setCurrentStep(0)), 0);
+      return (
+        <Card>
+          <Spin tip="Redirecting to resume upload..." />
+        </Card>
+      );
+    } else if (currentStep === 2 && (!profile?.name || !profile?.email)) {
+      console.warn(
+        "InterviewFlow: On step 2 without profile, redirecting to step 1"
+      );
+      setTimeout(() => dispatch(setCurrentStep(1)), 0);
+      return (
+        <Card>
+          <Spin tip="Redirecting to profile verification..." />
+        </Card>
+      );
+    } else if (currentStep === 3 && !finalScore && status !== "completed") {
+      console.warn(
+        "InterviewFlow: On step 3 without completed test, redirecting to step 2"
+      );
+      setTimeout(() => dispatch(setCurrentStep(2)), 0);
+      return (
+        <Card>
+          <Spin tip="Redirecting to interview test..." />
+        </Card>
+      );
+    }
+
     switch (currentStep) {
       case 0: // Resume Upload
+        console.log("InterviewFlow: Rendering resume upload step");
         return (
           <Card title="Step 1: Upload Your Resume" bordered>
             <Space direction="vertical" style={{ width: "100%" }} size="large">
@@ -185,10 +269,12 @@ const InterviewFlow = ({
 
               <ResumeUploader onParsed={handleResumeParsed} />
 
-              {resume.text && (
+              {resume?.text && (
                 <Alert
                   message="Resume uploaded successfully!"
-                  description={`File: ${resume.fileName} (${Math.round(resume.text.length / 1024)}KB of text extracted)`}
+                  description={`File: ${resume.fileName} (${Math.round(
+                    resume.text.length / 1024
+                  )}KB of text extracted)`}
                   type="success"
                   showIcon
                   action={
@@ -227,6 +313,7 @@ const InterviewFlow = ({
                 layout="vertical"
                 onFieldsChange={handleProfileChange}
                 initialValues={profile}
+                name="profile-verification-form"
               >
                 <Row gutter={[16, 16]}>
                   <Col xs={24} sm={12}>
@@ -285,29 +372,6 @@ const InterviewFlow = ({
                   </Col>
                 </Row>
               </Form>
-
-              {/* Resume Preview */}
-              <div>
-                <Title level={5}>Resume Preview</Title>
-                <div
-                  style={{
-                    height: "150px",
-                    overflow: "auto",
-                    border: "1px solid #d9d9d9",
-                    borderRadius: "6px",
-                    padding: "12px",
-                    backgroundColor: "#fafafa",
-                    fontFamily: "monospace",
-                    fontSize: "12px",
-                  }}
-                >
-                  <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-                    {resume.text?.substring(0, 800)}
-                    {resume.text?.length > 800 && "..."}
-                  </pre>
-                </div>
-              </div>
-
               {error && (
                 <Alert
                   message="Validation Error"
@@ -376,6 +440,11 @@ const InterviewFlow = ({
         );
 
       case 3: // View Results
+        console.log("InterviewFlow: Rendering interview summary for step 3", {
+          status,
+          finalScore,
+          finalSummaryLength: finalSummary?.length || 0,
+        });
         return (
           <InterviewSummary
             score={finalScore}

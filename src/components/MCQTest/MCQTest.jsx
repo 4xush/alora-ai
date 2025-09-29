@@ -133,14 +133,21 @@ const MCQTest = ({ onAnswer }) => {
           await onAnswer(answerData);
           console.log("MCQTest: onAnswer completed successfully");
 
-          // Add a small delay to see if state updates
-          setTimeout(() => {
-            console.log("MCQTest: Post-answer state check", {
-              currentQuestionIndex,
-              questionsLength: questions.length,
-              shouldHaveAdvanced: !answerData.isLast,
-            });
-          }, 200);
+          // If this is the last question, don't expect component to update further
+          if (answerData.isLast) {
+            console.log(
+              "MCQTest: Last question submitted, interview will complete"
+            );
+          } else {
+            // Only for non-final questions, check state updates
+            setTimeout(() => {
+              console.log("MCQTest: Post-answer state check", {
+                currentQuestionIndex,
+                questionsLength: questions.length,
+                shouldHaveAdvanced: !answerData.isLast,
+              });
+            }, 200);
+          }
         } else {
           console.error("MCQTest: No onAnswer handler provided!");
         }
@@ -199,10 +206,36 @@ const MCQTest = ({ onAnswer }) => {
 
   // Direct Redux store subscription for debugging
   useEffect(() => {
+    // Get the current interview status
+    const currentStatus = store.getState().interviewee.status;
+
+    // Don't set up subscription if the interview is already completed or not in progress
+    if (currentStatus === "completed" || !inProgress) {
+      console.log("MCQTest: Not setting up subscription", {
+        completed: currentStatus === "completed",
+        inProgress,
+      });
+      return;
+    }
+
     console.log("MCQTest: Setting up Redux store subscription");
 
+    let isComponentMounted = true;
     const unsubscribe = store.subscribe(() => {
+      // If component is unmounted, don't process updates
+      if (!isComponentMounted) return;
+
       const state = store.getState();
+      const interviewStatus = state.interviewee.status;
+
+      // Immediately return if interview is completed or no longer in progress
+      if (interviewStatus === "completed" || !state.interviewee.inProgress) {
+        console.log(
+          "MCQTest: Skipping store update - interview completed or not in progress"
+        );
+        return;
+      }
+
       const reduxQuestionIndex = state.interviewee.currentQuestionIndex;
       const reduxQuestionsLength = state.interviewee.questions.length;
 
@@ -212,10 +245,10 @@ const MCQTest = ({ onAnswer }) => {
         reduxQuestionsLength,
         componentQuestionsLength: questions.length,
         stateSync: reduxQuestionIndex === currentQuestionIndex,
-        currentQuestionId: state.interviewee.questions[reduxQuestionIndex]?.id,
+        interviewStatus,
       });
 
-      // Check if there's a mismatch
+      // Check if there's a mismatch (but only log it, don't force update)
       if (reduxQuestionIndex !== currentQuestionIndex) {
         console.warn("MCQTest: State mismatch detected!", {
           redux: reduxQuestionIndex,
@@ -227,9 +260,10 @@ const MCQTest = ({ onAnswer }) => {
 
     return () => {
       console.log("MCQTest: Cleaning up Redux store subscription");
+      isComponentMounted = false;
       unsubscribe();
     };
-  }, [currentQuestionIndex, questions.length]);
+  }, [currentQuestionIndex, questions.length, inProgress]);
 
   // Initialize question timer
   useEffect(() => {

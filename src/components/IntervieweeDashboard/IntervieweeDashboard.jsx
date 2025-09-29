@@ -88,15 +88,15 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
   // Get display data for latest interview
   const getLatestInterviewData = () => {
     if (status === "completed" && finalScore !== null) {
-      // Current completed interview
+      // Current completed interview - highest priority
       return {
         score: finalScore,
         summary: finalSummary,
         date: new Date().toISOString(),
         isCurrentSession: true,
       };
-    } else if (latestInterview) {
-      // Most recent past interview
+    } else if (latestInterview && latestInterview.finalScore !== null) {
+      // Most recent past interview with a score
       return {
         score: latestInterview.finalScore,
         summary: latestInterview.finalSummary,
@@ -121,7 +121,7 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
     }
 
     const completedInterviews = pastInterviews.filter(
-      (i) => i.finalScore !== null,
+      (i) => i.finalScore !== null
     );
     const scores = completedInterviews
       .map((i) => i.finalScore)
@@ -137,7 +137,7 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
       completionRate:
         pastInterviews.length > 0
           ? Math.round(
-              (completedInterviews.length / pastInterviews.length) * 100,
+              (completedInterviews.length / pastInterviews.length) * 100
             )
           : 0,
     };
@@ -148,12 +148,51 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
   // Event handlers
   const handleStartNewInterview = () => {
     console.log("Starting new interview from dashboard");
-    dispatch(resetInterview());
-    dispatch(setCurrentStep(0));
 
-    if (onStartNewInterview) {
-      onStartNewInterview();
+    try {
+      // Set loading state first - this ensures the spinner shows
+      setDashboardLoading(true);
+
+      // Reset interview state immediately
+      dispatch(resetInterview());
+
+      // Signal intent to start new interview with a brief delay
+      // This gives Redux state time to reset
+      setTimeout(() => {
+        // Directly invoke the parent handler which will handle the transition
+        if (onStartNewInterview) {
+          console.log(
+            "IntervieweeDashboard: Calling parent onStartNewInterview handler"
+          );
+          onStartNewInterview();
+        } else {
+          console.warn(
+            "IntervieweeDashboard: No onStartNewInterview handler provided"
+          );
+          setDashboardLoading(false); // Reset loading state if no handler
+        }
+      }, 50);
+    } catch (error) {
+      console.error(
+        "IntervieweeDashboard: Error starting new interview:",
+        error
+      );
+      setDashboardLoading(false);
+      // Show error message
+      message.error(
+        "There was a problem starting the interview. Please try again."
+      );
     }
+
+    // Safety net: If we're still on the dashboard after a delay, reset loading state
+    setTimeout(() => {
+      if (document.getElementById("interviewee-dashboard-container")) {
+        console.log(
+          "IntervieweeDashboard: Still on dashboard after delay, resetting loading state"
+        );
+        setDashboardLoading(false);
+      }
+    }, 1000);
   };
 
   const handleViewLatestResults = () => {
@@ -246,7 +285,7 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
   }
 
   return (
-    <>
+    <div id="interviewee-dashboard-container">
       {/* Header */}
       <Card bordered style={{ marginBottom: 24 }}>
         <Space direction="vertical" style={{ width: "100%" }}>
@@ -259,10 +298,14 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
           >
             <div>
               <Title level={2} style={{ margin: 0 }}>
-                Welcome back{profile?.name ? `, ${profile.name}` : ""}!
+                {profile?.name || pastInterviews?.length > 0 || resume?.text
+                  ? `Welcome back${profile?.name ? `, ${profile.name}` : ""}!`
+                  : "Welcome to Your Interview Practice!"}
               </Title>
               <Text type="secondary">
-                Ready to take on your next interview challenge?
+                {profile?.name || pastInterviews?.length > 0 || resume?.text
+                  ? "Ready to take on your next interview challenge?"
+                  : "Let's start by uploading your resume to create personalized questions."}
               </Text>
             </div>
             {profile?.email && <Badge status="success" text={profile.email} />}
@@ -332,7 +375,9 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
             title={
               <Space>
                 <FileAddOutlined style={{ color: "#7c3aed" }} />
-                Start New Interview
+                {resume?.text || profile?.name
+                  ? "Start New Interview"
+                  : "Begin Your First Interview"}
               </Space>
             }
             bordered
@@ -340,15 +385,19 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
           >
             <Space direction="vertical" style={{ width: "100%" }}>
               <Paragraph>
-                Ready to test your skills? Start a fresh interview session with
-                personalized questions based on your resume and experience
-                level.
+                {resume?.text || profile?.name || pastInterviews?.length > 0
+                  ? "Ready to test your skills? Start a fresh interview session with personalized questions based on your resume and experience level."
+                  : "Welcome to your interview practice platform! Follow our guided process to upload your resume and complete a practice interview."}
               </Paragraph>
 
               {!resume?.text && (
                 <Alert
-                  message="Resume Required"
-                  description="You'll need to upload your resume to get started with personalized questions."
+                  message={
+                    pastInterviews?.length > 0
+                      ? "Resume Required"
+                      : "Step 1: Upload Your Resume"
+                  }
+                  description="You'll need to upload your resume to get started with personalized questions tailored to your experience level."
                   type="info"
                   showIcon
                   style={{ marginBottom: 16 }}
@@ -359,11 +408,20 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
                 type="primary"
                 size="large"
                 icon={<FileAddOutlined />}
-                onClick={handleStartNewInterview}
+                onClick={() => {
+                  console.log("IntervieweeDashboard: Begin button clicked", {
+                    loading,
+                    dashboardLoading,
+                    hasResume: !!resume?.text,
+                  });
+                  handleStartNewInterview();
+                }}
                 loading={loading}
                 style={{ width: "100%" }}
               >
-                Start New Interview
+                {resume?.text || profile?.name || pastInterviews?.length > 0
+                  ? "Start New Interview"
+                  : "Begin Interview Process"}
               </Button>
             </Space>
           </Card>
@@ -374,7 +432,11 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
             title={
               <Space>
                 <HistoryOutlined style={{ color: "#7c3aed" }} />
-                Previous Results
+                {hasCompletedInterviews
+                  ? "Previous Results"
+                  : resume?.text
+                  ? "Your Results"
+                  : "Interview Process"}
               </Space>
             }
             bordered
@@ -398,8 +460,8 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
                             latestData.score >= 70
                               ? "#52c41a"
                               : latestData.score >= 40
-                                ? "#faad14"
-                                : "#f5222d",
+                              ? "#faad14"
+                              : "#f5222d",
                         }}
                       />
                       <div>
@@ -446,13 +508,35 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
                 <>
                   <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="No interviews completed yet"
+                    description={
+                      resume?.text
+                        ? "No interviews completed yet"
+                        : "Start your first interview"
+                    }
                     style={{ margin: "16px 0" }}
                   />
-                  <Text type="secondary">
-                    Complete your first interview to see detailed results and
-                    track your progress over time.
-                  </Text>
+                  {resume?.text ? (
+                    <Text type="secondary">
+                      Complete your first interview to see detailed results and
+                      track your progress over time.
+                    </Text>
+                  ) : (
+                    <div>
+                      <Alert
+                        message="How It Works"
+                        description={
+                          <ol>
+                            <li>Upload your resume</li>
+                            <li>Verify your personal information</li>
+                            <li>Take a tailored MCQ test</li>
+                            <li>Get detailed feedback and insights</li>
+                          </ol>
+                        }
+                        type="success"
+                        showIcon
+                      />
+                    </div>
+                  )}
                 </>
               )}
             </Space>
@@ -525,7 +609,7 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
                   ? Math.round(
                       (new Date(interview.endTime) -
                         new Date(interview.startTime)) /
-                        (1000 * 60),
+                        (1000 * 60)
                     )
                   : null;
 
@@ -563,8 +647,8 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
                               interview.finalScore >= 70
                                 ? "#52c41a"
                                 : interview.finalScore >= 50
-                                  ? "#faad14"
-                                  : "#f5222d",
+                                ? "#faad14"
+                                : "#f5222d",
                           }}
                         />
                         <div style={{ fontSize: "12px", marginTop: 4 }}>
@@ -692,7 +776,7 @@ const IntervieweeDashboard = ({ onStartNewInterview, onViewResults }) => {
           </Space>
         )}
       </Modal>
-    </>
+    </div>
   );
 };
 

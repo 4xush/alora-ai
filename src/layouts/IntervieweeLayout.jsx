@@ -55,17 +55,14 @@ const IntervieweeLayout = () => {
             AI Interview Assistant
           </Typography.Title>
           <Space>
-            <Button onClick={() => navigate("/settings")}>Settings</Button>
             <Dropdown
               menu={{
                 items: [
-                  { key: "profile", label: "Profile" },
                   {
                     key: "home",
                     label: "Back to Home",
                     onClick: () => navigate("/"),
                   },
-                  { key: "logout", label: "Logout" },
                 ],
               }}
             >

@@ -3,6 +3,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { message } from "antd";
 import { store } from "../store/store.js";
 import { aiService } from "../services/aiService.js";
+import { saveToStorage, STORAGE_KEYS } from "../utils/storageUtils";
+import ErrorBoundary from "../components/ErrorBoundary/ErrorBoundary.jsx";
 import {
   setProfile,
   setResume,
@@ -63,6 +65,35 @@ const IntervieweePage = () => {
     return Math.round((answers.length / questions.length) * 100);
   }, [questions.length, answers.length]);
 
+  // Check for first-time visitor
+  useEffect(() => {
+    // Get first visit data from localStorage
+    const hasVisited = localStorage.getItem(STORAGE_KEYS.FIRST_VISIT);
+    const hasCompletedInterviews = pastInterviews && pastInterviews.length > 0;
+    const hasResumeData = resume && resume.text;
+    const hasProfileData = profile && profile.name;
+
+    // Determine if this is a first-time user
+    const isFirstTimeUser =
+      !hasVisited &&
+      !hasCompletedInterviews &&
+      !hasResumeData &&
+      !hasProfileData;
+
+    if (!hasVisited) {
+      console.log("IntervieweePage: First time visitor to site");
+      saveToStorage(STORAGE_KEYS.FIRST_VISIT, true);
+    }
+
+    console.log("IntervieweePage: User visit status", {
+      isFirstTimeUser,
+      hasVisitedBefore: !!hasVisited,
+      hasCompletedInterviews,
+      hasResumeData: !!hasResumeData,
+      hasProfileData: !!hasProfileData,
+    });
+  }, [pastInterviews, resume, profile]);
+
   // Determine which view to show
   useEffect(() => {
     console.log("IntervieweePage: Determining view", {
@@ -70,24 +101,36 @@ const IntervieweePage = () => {
       currentStep,
       inProgress,
       showDashboard,
+      hasResume: !!resume?.text,
     });
 
-    const shouldShowDashboard =
-      (!inProgress && currentStep === 0) || // Initial state
-      (status === "idle" && currentStep === 0) || // Reset state
-      (status === "completed" && currentStep === 3 && !showDashboard); // After viewing results
+    // Simplified logic - clear separation between dashboard and interview flow
+    // 1. If user explicitly navigates to dashboard, show it
+    // 2. If interview is in progress or on a specific step, show interview flow
+    // 3. Default to dashboard for idle state
 
-    const shouldShowInterview =
-      inProgress ||
-      (currentStep > 0 && currentStep < 4) ||
-      (status === "completed" && showDashboard === false);
-
-    if (shouldShowDashboard && !shouldShowInterview) {
-      setShowDashboard(true);
-    } else if (shouldShowInterview) {
-      setShowDashboard(false);
+    if (showDashboard === true) {
+      // User explicitly chose to view dashboard
+      console.log("IntervieweePage: Showing dashboard (explicit)");
+      // Make sure currentStep is 0 when showing dashboard
+      if (currentStep !== 0 && status !== "completed") {
+        dispatch(setCurrentStep(0));
+      }
+    } else if (showDashboard === false) {
+      // User explicitly chose to start interview
+      console.log("IntervieweePage: Showing interview flow (explicit)");
+      // We're already showing the interview flow, nothing to do
+    } else {
+      // Initial state - determine based on other factors
+      if (inProgress || currentStep > 0) {
+        console.log("IntervieweePage: Showing interview flow (implicit)");
+        setShowDashboard(false);
+      } else {
+        console.log("IntervieweePage: Showing dashboard (implicit)");
+        setShowDashboard(true);
+      }
     }
-  }, [status, currentStep, inProgress, showDashboard]);
+  }, [status, currentStep, inProgress, showDashboard, dispatch, resume]);
 
   // Handle resume parsing and profile extraction
   const handleResumeParsed = useCallback(
@@ -127,12 +170,12 @@ const IntervieweePage = () => {
       } catch (error) {
         console.error(
           "IntervieweePage: Failed to extract profile info:",
-          error,
+          error
         );
 
         // Don't fail the whole process if profile extraction fails
         message.warning(
-          "Resume uploaded but we couldn't extract all details automatically. Please verify your information manually.",
+          "Resume uploaded but we couldn't extract all details automatically. Please verify your information manually."
         );
 
         // Still advance to next step
@@ -141,7 +184,7 @@ const IntervieweePage = () => {
         dispatch(setLoading(false));
       }
     },
-    [dispatch, profile],
+    [dispatch, profile]
   );
 
   // Start interview process
@@ -181,15 +224,14 @@ const IntervieweePage = () => {
 
       console.log(
         "IntervieweePage: Questions generated:",
-        questionsResult.questions.length,
+        questionsResult.questions.length
       );
 
-      // Update interviewer's candidate list
-      const candidateId =
-        profile.email || profile.name || Date.now().toString();
+      // Update interviewer's candidate list with a new attempt
+      const attemptId = Date.now().toString();
       dispatch(
         upsertCandidate({
-          id: candidateId,
+          id: attemptId,
           name: profile.name,
           email: profile.email,
           phone: profile.phone,
@@ -199,7 +241,8 @@ const IntervieweePage = () => {
           resumeText: resume.text,
           transcript: [],
           interviewId: currentInterviewId,
-        }),
+          interviewDate: new Date().toISOString(),
+        })
       );
 
       message.success("Interview started! Good luck!");
@@ -235,7 +278,7 @@ const IntervieweePage = () => {
         if (!isLast) {
           // Move to next question with proper async handling
           console.log(
-            "IntervieweePage: Not last question, dispatching nextQuestion",
+            "IntervieweePage: Not last question, dispatching nextQuestion"
           );
 
           // Dispatch nextQuestion and wait a tick for state update
@@ -250,7 +293,7 @@ const IntervieweePage = () => {
                 "IntervieweePage: Question advanced from",
                 currentQuestionIndex,
                 "to",
-                newIndex,
+                newIndex
               );
 
               if (newIndex > currentQuestionIndex) {
@@ -258,10 +301,10 @@ const IntervieweePage = () => {
                 message.success("Answer recorded! Moving to next question...");
               } else {
                 console.error(
-                  "IntervieweePage: Question did not advance properly",
+                  "IntervieweePage: Question did not advance properly"
                 );
                 message.warning(
-                  "Answer recorded, but there may be a display issue",
+                  "Answer recorded, but there may be a display issue"
                 );
               }
 
@@ -271,7 +314,7 @@ const IntervieweePage = () => {
         } else {
           // This was the last question - start scoring
           console.log(
-            "IntervieweePage: Last answer submitted, starting scoring...",
+            "IntervieweePage: Last answer submitted, starting scoring..."
           );
           setIsScoringAnswers(true);
 
@@ -283,8 +326,10 @@ const IntervieweePage = () => {
             dispatch(completeInterview(scoringResult));
 
             // Update interviewer's candidate list with final results
-            const candidateId =
-              profile.email || profile.name || Date.now().toString();
+            // Create a unique attempt ID
+            const attemptId = Date.now().toString();
+            const candidateId = profile.email || profile.name || attemptId;
+
             const transcript = questions.map((q, i) => ({
               q: q.text || q.question || "",
               a: answers[i]?.answer || "",
@@ -294,7 +339,7 @@ const IntervieweePage = () => {
 
             dispatch(
               upsertCandidate({
-                id: candidateId,
+                id: attemptId,
                 name: profile.name,
                 email: profile.email,
                 phone: profile.phone,
@@ -304,7 +349,8 @@ const IntervieweePage = () => {
                 resumeText: resume.text,
                 transcript,
                 completedAt: new Date().toISOString(),
-              }),
+                interviewDate: new Date().toISOString(),
+              })
             );
 
             message.success("Interview completed! Check your results.");
@@ -325,7 +371,7 @@ const IntervieweePage = () => {
             dispatch(completeInterview(fallbackResult));
 
             message.warning(
-              "Interview completed but scoring encountered issues. Results may be approximate.",
+              "Interview completed but scoring encountered issues. Results may be approximate."
             );
           } finally {
             setIsScoringAnswers(false);
@@ -336,34 +382,87 @@ const IntervieweePage = () => {
         message.error("Failed to record answer. Please try again.");
       }
     },
-    [dispatch, questions, answers, profile, resume, currentQuestionIndex],
+    [dispatch, questions, answers, profile, resume, currentQuestionIndex]
   );
 
   // Handle interview completion
   const handleInterviewComplete = useCallback(() => {
-    console.log("IntervieweePage: Interview completed");
-    // Show results for a moment before offering dashboard
-    setTimeout(() => {
-      setShowDashboard(true);
-    }, 3000);
-  }, []);
+    console.log(
+      "IntervieweePage: Interview completed, navigating to dashboard"
+    );
+
+    // Set the current step to 0 just to be safe
+    dispatch(setCurrentStep(0));
+
+    // Explicitly set showDashboard to true to return to dashboard
+    setShowDashboard(true);
+
+    // Show a confirmation message
+    message.success("Returning to dashboard");
+  }, [dispatch]);
 
   // Navigation handlers
   const handleStartNewInterview = useCallback(() => {
-    console.log("IntervieweePage: Starting new interview from dashboard");
-    dispatch(clearError());
-    setShowDashboard(false);
+    try {
+      console.log("IntervieweePage: Starting new interview from dashboard", {
+        hasResumeText: !!resume?.text,
+        currentStep,
+        inProgress,
+        showDashboard,
+      });
 
-    // If no resume, start from beginning
-    if (!resume?.text) {
+      // First clear any errors
+      dispatch(clearError());
+
+      // CRITICAL: First explicitly force set showDashboard to false
+      // This ensures we show the interview flow component
+      setShowDashboard(false);
+
+      // Get the current resume state before resetting
+      const hasResume = !!resume?.text;
+
+      // Reset the interview state
       dispatch(resetInterview());
-      dispatch(setCurrentStep(0));
-    } else {
-      // If have resume, start from verification
-      dispatch(resetInterview());
-      dispatch(setCurrentStep(1));
+
+      // Force a short delay to ensure state changes are processed
+      setTimeout(() => {
+        // Set the appropriate step
+        if (!hasResume) {
+          console.log(
+            "IntervieweePage: No resume text, setting to step 0 (resume upload)"
+          );
+          dispatch(setCurrentStep(0));
+        } else {
+          console.log(
+            "IntervieweePage: Has resume, setting to step 1 (profile verification)"
+          );
+          dispatch(setCurrentStep(1));
+        }
+
+        // Log that we've completed the transition
+        console.log("IntervieweePage: Interview flow should now be visible", {
+          showingDashboard: false,
+          targetStep: hasResume ? 1 : 0,
+        });
+      }, 50);
+
+      // Double check after a longer delay that we're in the right state
+      setTimeout(() => {
+        const state = store.getState();
+        console.log("IntervieweePage: Final state check after transition", {
+          currentStep: state.interviewee.currentStep,
+          showDashboard,
+          inProgress: state.interviewee.inProgress,
+        });
+      }, 300);
+    } catch (err) {
+      console.error("Error starting new interview:", err);
+      message.error(
+        "There was a problem starting the interview. Please try again."
+      );
+      setShowDashboard(true);
     }
-  }, [dispatch, resume]);
+  }, [dispatch, resume, currentStep, inProgress, showDashboard]);
 
   const handleViewResults = useCallback(() => {
     console.log("IntervieweePage: Viewing results from dashboard");
@@ -376,6 +475,9 @@ const IntervieweePage = () => {
 
   const handleBackToDashboard = useCallback(() => {
     console.log("IntervieweePage: Returning to dashboard");
+    // Reset loading states to be safe
+    setIsGeneratingQuestions(false);
+    setIsScoringAnswers(false);
     setShowDashboard(true);
   }, []);
 
@@ -450,21 +552,33 @@ const IntervieweePage = () => {
 
       {/* Main Content */}
       {showDashboard ? (
-        <IntervieweeDashboard
-          onStartNewInterview={handleStartNewInterview}
-          onViewResults={handleViewResults}
-        />
+        <ErrorBoundary onReset={() => window.location.reload()}>
+          <div id="interviewee-dashboard-container">
+            <IntervieweeDashboard
+              key={`dashboard-${!!resume?.text}-${!!profile?.name}-${
+                pastInterviews?.length || 0
+              }-${Date.now()}`}
+              onStartNewInterview={handleStartNewInterview}
+              onViewResults={handleViewResults}
+            />
+          </div>
+        </ErrorBoundary>
       ) : (
-        <InterviewFlow
-          onStart={handleStartInterview}
-          onAnswer={handleAnswerSubmit}
-          onComplete={handleInterviewComplete}
-          onResumeParsed={handleResumeParsed}
-          onBackToDashboard={handleBackToDashboard}
-          error={error}
-          loading={loading}
-          progress={progress}
-        />
+        <ErrorBoundary onReset={handleBackToDashboard}>
+          <div id="interview-flow-container">
+            <InterviewFlow
+              key={`interview-flow-${currentStep}-${!!resume?.text}-${Date.now()}`}
+              onStart={handleStartInterview}
+              onAnswer={handleAnswerSubmit}
+              onComplete={handleInterviewComplete}
+              onResumeParsed={handleResumeParsed}
+              onBackToDashboard={handleBackToDashboard}
+              error={error}
+              loading={loading}
+              progress={progress}
+            />
+          </div>
+        </ErrorBoundary>
       )}
     </div>
   );

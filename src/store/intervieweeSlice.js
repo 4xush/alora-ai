@@ -384,20 +384,36 @@ const intervieweeSlice = createSlice({
     },
 
     resetInterview(state) {
-      console.log("Resetting interview (keeping history)");
+      console.log("Resetting interview (keeping history)", {
+        currentStep: state.currentStep,
+        hasProfile: !!state.profile?.name,
+        hasResume: !!state.resume?.text
+      });
+
       ensureStateProperties(state);
 
       // Keep pastInterviews and profile, reset everything else
       const { pastInterviews } = state;
+      const resumeInfo = { ...state.resume };
+      const profileInfo = { ...state.profile };
 
+      // Full reset of all interview-specific state
       Object.assign(state, {
         ...initialState,
+        // Keep these persistence states
         pastInterviews,
         // Keep profile if it exists
-        profile: state.profile.email ? state.profile : initialState.profile,
+        profile: profileInfo.name || profileInfo.email ? profileInfo : initialState.profile,
         // Keep resume if it exists
-        resume: state.resume.text ? state.resume : initialState.resume,
-        currentStep: state.resume.text ? 1 : 0,
+        resume: resumeInfo.text ? resumeInfo : initialState.resume,
+      });
+
+      // Set the current step based on what info we have
+      state.currentStep = state.resume.text ? 1 : 0;
+
+      console.log("Interview reset complete", {
+        newCurrentStep: state.currentStep,
+        hasResumeAfterReset: !!state.resume?.text
       });
     },
 
@@ -530,10 +546,10 @@ export const selectCurrentInterview = (state) => ({
   progress:
     state.interviewee.questions.length > 0
       ? Math.round(
-          (state.interviewee.answers.length /
-            state.interviewee.questions.length) *
-            100,
-        )
+        (state.interviewee.answers.length /
+          state.interviewee.questions.length) *
+        100,
+      )
       : 0,
 });
 
@@ -543,7 +559,15 @@ export const selectPastInterviews = (state) =>
   state.interviewee.pastInterviews || [];
 export const selectLatestInterview = (state) => {
   const interviews = state.interviewee.pastInterviews || [];
-  return interviews.length > 0 ? interviews[0] : null;
+
+  // First check if there are any completed interviews with scores
+  const scoredInterviews = interviews.filter(interview =>
+    interview.finalScore !== null &&
+    interview.finalScore !== undefined
+  );
+
+  // Return the most recent scored interview or the most recent interview if none have scores
+  return scoredInterviews.length > 0 ? scoredInterviews[0] : (interviews.length > 0 ? interviews[0] : null);
 };
 
 export default intervieweeSlice.reducer;
