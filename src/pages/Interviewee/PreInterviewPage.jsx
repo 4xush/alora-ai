@@ -39,6 +39,7 @@ const PreInterviewPage = () => {
     handleResumeParsed,
     handleStartInterview,
     handleBackToDashboard,
+    handleResumeInterview,
   } = useInterviewFlow();
 
   const { hasSavedProgress } = useInterviewPersistence();
@@ -69,7 +70,14 @@ const PreInterviewPage = () => {
 
   // Check for resumable interview
   useEffect(() => {
-    if ((inProgress && paused) || hasSavedProgress) {
+    // Check both the redux state and localStorage flag
+    const shouldShowModal =
+      (inProgress && paused) ||
+      hasSavedProgress ||
+      localStorage.getItem("show_resume_interview_modal") === "true";
+
+    if (shouldShowModal) {
+      console.log("Showing resume interview modal");
       setShowResumeModal(true);
     }
   }, [inProgress, paused, hasSavedProgress]);
@@ -146,16 +154,29 @@ const PreInterviewPage = () => {
     }
   };
 
-  const handleResumeInterview = () => {
+  const handleResumeClick = () => {
     setResumeLoading(true);
     try {
-      dispatch(resumeInterview());
-      window.location.href = "/interviewee/interview";
+      // Direct dispatch approach as fallback
+      if (!handleResumeInterview) {
+        console.log("Using direct dispatch approach for resume");
+        dispatch(resumeInterview());
+        setTimeout(() => {
+          window.location.href = "/interviewee/interview";
+        }, 300);
+      } else {
+        // Use the hook's resume handler
+        console.log("Using hook's handleResumeInterview method");
+        handleResumeInterview();
+      }
+
+      // Close the modal regardless of success (navigation will happen if successful)
+      setShowResumeModal(false);
     } catch (error) {
+      console.error("Failed to resume interview:", error);
       setLocalError(
         "Failed to resume interview. Please try starting a new one."
       );
-    } finally {
       setResumeLoading(false);
       setShowResumeModal(false);
     }
@@ -464,7 +485,7 @@ const PreInterviewPage = () => {
             </Button>
             <Button
               type="primary"
-              onClick={handleResumeInterview}
+              onClick={handleResumeClick}
               loading={resumeLoading}
               icon={<PlayCircleOutlined />}
               size="large"

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { message } from "antd";
 import {
     startInterview,
+    resumeInterview,
     generateQuestions,
     recordAnswer,
     nextQuestion,
@@ -386,6 +387,30 @@ export const useInterviewFlow = () => {
         }
     }, [inProgress, paused]);
 
+    // Handle resuming an interview
+    const handleResumeInterview = useCallback(() => {
+        console.log("useInterviewFlow: Resuming interview");
+
+        try {
+            // Clear any existing errors
+            dispatch(clearError());
+
+            // Dispatch the resume action
+            dispatch(resumeInterview());
+
+            // Navigate to interview page
+            navigate("/interviewee/interview");
+
+            return true;
+        } catch (error) {
+            console.error("useInterviewFlow: Failed to resume interview:", error);
+            const errorMsg = error.message || "Failed to resume interview. Please try again.";
+            dispatch(setError(errorMsg));
+            message.error(errorMsg);
+            return false;
+        }
+    }, [dispatch, navigate]);
+
     return {
         // State
         profile,
@@ -413,6 +438,7 @@ export const useInterviewFlow = () => {
         handleStartNewInterview,
         handleViewResults,
         handleRetakeInterview,
+        handleResumeInterview,
     };
 };
 

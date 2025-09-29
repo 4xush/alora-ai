@@ -258,12 +258,45 @@ const intervieweeSlice = createSlice({
       state.inProgress = true;
       state.status = "in_progress";
 
+      // Ensure we have a valid interview ID
+      if (!state.currentInterviewId) {
+        state.currentInterviewId = createInterviewId();
+      }
+
+      // Make sure interviewStartTime is set
+      if (!state.interviewStartTime) {
+        state.interviewStartTime = new Date().toISOString();
+      }
+
+      // Validate question and answer state
+      if (state.questions.length === 0) {
+        console.log("No questions loaded, will need to generate questions when page loads");
+      }
+
+      // If currentQuestionIndex is invalid, reset to 0
+      if (state.currentQuestionIndex < 0 || state.currentQuestionIndex >= state.questions.length) {
+        console.log("Invalid question index, resetting to 0");
+        state.currentQuestionIndex = 0;
+      }
+
       // If we're resuming an interview, make sure we're on the right step
       if (state.currentStep !== 2) {
         state.currentStep = 2; // Set to interview step
       }
 
-      console.log("Interview resumed successfully");
+      // Clear any stored resume modal flag
+      try {
+        localStorage.removeItem('show_resume_interview_modal');
+      } catch (e) {
+        console.error('Error clearing resume modal flag:', e);
+      }
+
+      console.log("Interview resumed successfully", {
+        currentQuestionIndex: state.currentQuestionIndex,
+        questionsLoaded: state.questions.length,
+        answersRecorded: state.answers.length,
+        interviewId: state.currentInterviewId
+      });
     },
 
     pauseInterview(state) {

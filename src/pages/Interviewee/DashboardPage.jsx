@@ -3,35 +3,43 @@ import {
   Card,
   Button,
   Typography,
-  Space,
   Row,
   Col,
-  Divider,
   List,
   Empty,
   Statistic,
   Tag,
-  Badge,
   Spin,
+  Modal,
 } from "antd";
 import {
-  FileAddOutlined,
-  HistoryOutlined,
   TrophyOutlined,
   CalendarOutlined,
   EyeOutlined,
+  HistoryOutlined,
+  ArrowRightOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  PlayCircleOutlined,
+  UndoOutlined,
 } from "@ant-design/icons";
+import { FileText, User, Award, TrendingUp } from "lucide-react";
 import useInterviewFlow from "../../hooks/interviewee/useInterviewFlow";
-import { useSelector } from "react-redux";
-import { selectLatestInterview } from "../../store/intervieweeSlice";
+import useInterviewPersistence from "../../hooks/interviewee/useInterviewPersistence";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  selectLatestInterview,
+  resumeInterview,
+} from "../../store/intervieweeSlice";
 
 const { Title, Text, Paragraph } = Typography;
 
 /**
  * Dashboard page for interviewees
- * Shows past interviews, resume status, and actions to start new interviews
+ * Professional interface showing resume status, profile, and interview history
  */
 const DashboardPage = () => {
+  const dispatch = useDispatch();
   const {
     profile,
     resume,
@@ -41,33 +49,53 @@ const DashboardPage = () => {
     status,
     handleStartNewInterview,
     handleViewResults,
+    handleResumeInterview,
   } = useInterviewFlow();
 
+  const { hasSavedProgress, resumableInterviewInfo } =
+    useInterviewPersistence();
   const latestInterview = useSelector(selectLatestInterview);
-
-  // Local state
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [resumeLoading, setResumeLoading] = useState(false);
 
-  // Initialize dashboard
   useEffect(() => {
-    // Simulate loading for better UX
     const timer = setTimeout(() => {
       setDashboardLoading(false);
-    }, 500);
 
+      // Check directly for any in-progress interviews in localStorage
+      const keys = Object.keys(localStorage);
+      const progressKeys = keys.filter((k) =>
+        k.startsWith("interviewProgress")
+      );
+
+      if (progressKeys.length > 0) {
+        // Check if any of these represent a valid in-progress interview
+        const hasValidProgress = progressKeys.some((key) => {
+          try {
+            const data = JSON.parse(localStorage.getItem(key));
+            return data && data.inProgress && data.status === "in_progress";
+          } catch (e) {
+            return false;
+          }
+        });
+
+        if (hasValidProgress) {
+          console.log("Found in-progress interview, showing resume modal");
+          setShowResumeModal(true);
+        }
+      }
+    }, 500);
     return () => clearTimeout(timer);
   }, []);
 
-  // Check if user has completed interviews
   const hasCompletedInterviews =
     (pastInterviews && pastInterviews.length > 0) ||
     status === "completed" ||
     finalScore !== null;
 
-  // Get display data for latest interview
   const getLatestInterviewData = () => {
     if (status === "completed" && finalScore !== null) {
-      // Current completed interview
       return {
         score: finalScore,
         summary: finalSummary,
@@ -75,7 +103,6 @@ const DashboardPage = () => {
         isCurrentSession: true,
       };
     } else if (latestInterview) {
-      // Most recent past interview
       return {
         score: latestInterview.finalScore,
         summary: latestInterview.finalSummary,
@@ -83,311 +110,496 @@ const DashboardPage = () => {
         isCurrentSession: false,
       };
     }
-
-    // No interview data
     return null;
   };
 
-  // Show loading state
   if (dashboardLoading) {
     return (
-      <div className="p-8 text-center">
-        <Spin size="large" />
-        <div className="mt-4">
-          <Text type="secondary">Loading dashboard...</Text>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <Spin size="large" />
+          <div className="mt-4">
+            <Text className="text-gray-600">Loading dashboard...</Text>
+          </div>
         </div>
       </div>
     );
   }
 
   const latestInterviewData = getLatestInterviewData();
+
   return (
-    <div className="p-8">
-      <Row gutter={[24, 24]}>
-        {/* Welcome Section */}
-        <Col span={24}>
-          <Card className="shadow-sm">
-            <Row align="middle" gutter={[24, 0]}>
-              <Col xs={24} md={16}>
-                <Title level={3} className="mb-2">
-                  Welcome{profile?.name ? `, ${profile.name}` : ""}!
-                </Title>
-                <Paragraph className="text-md text-slate-600">
-                  Practice your interview skills with our AI-powered mock
-                  interviewer.
-                  {profile?.name
-                    ? " Your profile is ready."
-                    : " Start by uploading your resume."}
-                </Paragraph>
-              </Col>
-            </Row>
-          </Card>
-        </Col>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Header Section */}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <Title level={2} className="mb-1">
+                Welcome back{profile?.name ? `, ${profile.name}` : ""}!
+              </Title>
+              <Text className="text-gray-600">
+                Track your progress and continue improving your interview skills
+              </Text>
+            </div>
+            <Button
+              type="primary"
+              size="large"
+              icon={<ArrowRightOutlined />}
+              onClick={handleStartNewInterview}
+              className="hidden md:flex items-center"
+            >
+              Start New Interview
+            </Button>
+          </div>
+        </div>
+      </div>
 
-        {/* Status Cards */}
-        <Col xs={24} md={12}>
-          <Card title="Your Resume" className="h-full shadow-sm">
-            {resume?.text ? (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <Space>
-                    <Badge status="success" />
-                    <Text strong>Resume Uploaded</Text>
-                  </Space>
-                  <Tag color="green">Ready</Tag>
-                </div>
-                <Paragraph className="mb-4 text-slate-500">
-                  You've uploaded: <strong>{resume.fileName}</strong>
-                </Paragraph>
-                <Button
-                  onClick={handleStartNewInterview}
-                  type="default"
-                  className="mt-2"
-                >
-                  Update Resume
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <Space>
-                    <Badge status="warning" />
-                    <Text strong>No Resume</Text>
-                  </Space>
-                  <Tag color="orange">Required</Tag>
-                </div>
-                <Paragraph className="mb-4 text-slate-500">
-                  Upload your resume to start practicing interviews
-                </Paragraph>
-                <Button
-                  type="primary"
-                  onClick={handleStartNewInterview}
-                  className="mt-2"
-                >
-                  Upload Resume
-                </Button>
-              </>
-            )}
-          </Card>
-        </Col>
-
-        <Col xs={24} md={12}>
-          <Card title="Your Profile" className="h-full shadow-sm">
-            {profile?.name ? (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <Space>
-                    <Badge status="success" />
-                    <Text strong>Profile Complete</Text>
-                  </Space>
-                  <Tag color="green">Ready</Tag>
-                </div>
-                <ul className="list-none p-0 m-0">
-                  <li className="mb-2">
-                    <Text className="text-slate-500">
-                      Name: <strong>{profile.name}</strong>
-                    </Text>
-                  </li>
-                  <li className="mb-2">
-                    <Text className="text-slate-500">
-                      Email: <strong>{profile.email || "Not provided"}</strong>
-                    </Text>
-                  </li>
-                  <li>
-                    <Text className="text-slate-500">
-                      Phone: <strong>{profile.phone || "Not provided"}</strong>
-                    </Text>
-                  </li>
-                </ul>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <Space>
-                    <Badge status="warning" />
-                    <Text strong>Profile Incomplete</Text>
-                  </Space>
-                  <Tag color="orange">Required</Tag>
-                </div>
-                <Paragraph className="mb-4 text-slate-500">
-                  Complete your profile information to personalize your
-                  interview experience
-                </Paragraph>
-                <Button
-                  type="primary"
-                  onClick={handleStartNewInterview}
-                  className="mt-2"
-                >
-                  Complete Profile
-                </Button>
-              </>
-            )}
-          </Card>
-        </Col>
-
-        {/* Latest Interview Results */}
-        <Col span={24}>
-          <Card
-            title={
-              <div className="flex items-center">
-                <TrophyOutlined className="mr-2 text-yellow-500" />
-                <span>Latest Interview Results</span>
-              </div>
-            }
-            className="shadow-sm"
-            extra={
-              hasCompletedInterviews ? (
-                <Button
-                  type="link"
-                  onClick={handleViewResults}
-                  icon={<EyeOutlined />}
-                >
-                  View Details
-                </Button>
-              ) : null
-            }
-          >
-            {latestInterviewData ? (
-              <Row gutter={[24, 24]}>
-                <Col xs={24} md={6}>
-                  <Statistic
-                    title="Your Score"
-                    value={latestInterviewData.score}
-                    suffix="/ 100"
-                    valueStyle={{
-                      color:
-                        latestInterviewData.score >= 80
-                          ? "#3f8600"
-                          : latestInterviewData.score >= 60
-                          ? "#faad14"
-                          : "#cf1322",
-                    }}
-                  />
-                </Col>
-                <Col xs={24} md={12}>
-                  <Title level={5}>Summary</Title>
-                  <Paragraph ellipsis={{ rows: 3 }} className="text-slate-600">
-                    {latestInterviewData.summary ||
-                      "No detailed feedback available for this interview."}
-                  </Paragraph>
-                </Col>
-                <Col xs={24} md={6}>
-                  <div className="flex flex-col h-full justify-center items-center">
-                    <div className="text-center">
-                      <div className="text-slate-500 mb-1">
-                        <CalendarOutlined className="mr-1" />
-                        {new Date(
-                          latestInterviewData.date
-                        ).toLocaleDateString()}
-                      </div>
-                      {latestInterviewData.isCurrentSession && (
-                        <Tag color="blue">Current Session</Tag>
-                      )}
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Row gutter={[24, 24]}>
+          {/* Quick Stats Cards */}
+          <Col xs={24} md={8}>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-blue-600" />
                     </div>
+                    <Text className="font-semibold text-gray-700">
+                      Resume Status
+                    </Text>
                   </div>
-                </Col>
-                <Col span={24}>
-                  <Divider className="my-2" />
-                  <div className="text-center">
+                  {resume?.text ? (
+                    <>
+                      <div className="flex items-center space-x-2 mb-2">
+                        <CheckCircleOutlined className="text-green-500" />
+                        <Text className="text-sm font-medium text-gray-900">
+                          Uploaded
+                        </Text>
+                      </div>
+                      <Text className="text-xs text-gray-500 block mb-3">
+                        {resume.fileName}
+                      </Text>
+                      <Button size="small" onClick={handleStartNewInterview}>
+                        Update Resume
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center space-x-2 mb-2">
+                        <ClockCircleOutlined className="text-orange-500" />
+                        <Text className="text-sm font-medium text-gray-900">
+                          Not Uploaded
+                        </Text>
+                      </div>
+                      <Text className="text-xs text-gray-500 block mb-3">
+                        Upload to start practicing
+                      </Text>
+                      <Button
+                        type="primary"
+                        size="small"
+                        onClick={handleStartNewInterview}
+                      >
+                        Upload Now
+                      </Button>
+                    </>
+                  )}
+                </div>
+                <Tag color={resume?.text ? "success" : "warning"}>
+                  {resume?.text ? "Ready" : "Required"}
+                </Tag>
+              </div>
+            </div>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <User className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <Text className="font-semibold text-gray-700">Profile</Text>
+                  </div>
+                  {profile?.name ? (
+                    <>
+                      <div className="flex items-center space-x-2 mb-2">
+                        <CheckCircleOutlined className="text-green-500" />
+                        <Text className="text-sm font-medium text-gray-900">
+                          Complete
+                        </Text>
+                      </div>
+                      <Text className="text-xs text-gray-500 block truncate">
+                        {profile.email || "No email provided"}
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center space-x-2 mb-2">
+                        <ClockCircleOutlined className="text-orange-500" />
+                        <Text className="text-sm font-medium text-gray-900">
+                          Incomplete
+                        </Text>
+                      </div>
+                      <Text className="text-xs text-gray-500 block mb-3">
+                        Complete your profile
+                      </Text>
+                      <Button
+                        type="primary"
+                        size="small"
+                        onClick={handleStartNewInterview}
+                      >
+                        Complete Now
+                      </Button>
+                    </>
+                  )}
+                </div>
+                <Tag color={profile?.name ? "success" : "warning"}>
+                  {profile?.name ? "Ready" : "Required"}
+                </Tag>
+              </div>
+            </div>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <div className="bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl shadow-sm p-6 text-white hover:shadow-md transition-shadow">
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Award className="w-5 h-5 text-white" />
+                </div>
+                <Text className="font-semibold text-white">
+                  Total Interviews
+                </Text>
+              </div>
+              <div className="mb-2">
+                <Text className="text-3xl font-bold text-white">
+                  {pastInterviews?.length || 0}
+                </Text>
+              </div>
+              <Text className="text-xs text-white/80">
+                {hasCompletedInterviews
+                  ? "Keep practicing to improve!"
+                  : "Start your first interview today"}
+              </Text>
+            </div>
+          </Col>
+
+          {/* Latest Interview Results */}
+          <Col span={24}>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-6 py-4 bg-gradient-to-r from-violet-50 to-indigo-50 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <TrophyOutlined className="text-yellow-500 text-lg" />
+                    <Title level={4} className="m-0">
+                      Latest Interview Results
+                    </Title>
+                  </div>
+                  {hasCompletedInterviews && (
+                    <Button
+                      type="link"
+                      onClick={handleViewResults}
+                      icon={<EyeOutlined />}
+                    >
+                      View Details
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6">
+                {latestInterviewData ? (
+                  <Row gutter={[24, 24]}>
+                    <Col xs={24} lg={6}>
+                      <div className="text-center lg:text-left">
+                        <Text className="text-sm text-gray-500 block mb-2">
+                          Your Score
+                        </Text>
+                        <div className="flex items-baseline justify-center lg:justify-start space-x-1">
+                          <Text
+                            className="text-4xl font-bold"
+                            style={{
+                              color:
+                                latestInterviewData.score >= 80
+                                  ? "#52c41a"
+                                  : latestInterviewData.score >= 60
+                                  ? "#faad14"
+                                  : "#ff4d4f",
+                            }}
+                          >
+                            {latestInterviewData.score}
+                          </Text>
+                          <Text className="text-xl text-gray-400">/ 100</Text>
+                        </div>
+                        <div className="mt-2">
+                          <Tag
+                            color={
+                              latestInterviewData.score >= 80
+                                ? "success"
+                                : latestInterviewData.score >= 60
+                                ? "warning"
+                                : "error"
+                            }
+                          >
+                            {latestInterviewData.score >= 80
+                              ? "Excellent"
+                              : latestInterviewData.score >= 60
+                              ? "Good"
+                              : "Needs Improvement"}
+                          </Tag>
+                        </div>
+                      </div>
+                    </Col>
+
+                    <Col xs={24} lg={12}>
+                      <div>
+                        <Text className="text-sm font-semibold text-gray-700 block mb-2">
+                          Summary
+                        </Text>
+                        <Paragraph
+                          ellipsis={{ rows: 3 }}
+                          className="text-gray-600 text-sm leading-relaxed"
+                        >
+                          {latestInterviewData.summary ||
+                            "No detailed feedback available for this interview."}
+                        </Paragraph>
+                      </div>
+                    </Col>
+
+                    <Col xs={24} lg={6}>
+                      <div className="flex flex-col justify-center h-full">
+                        <div className="flex items-center justify-center lg:justify-end space-x-2 text-gray-500 mb-2">
+                          <CalendarOutlined />
+                          <Text className="text-sm">
+                            {new Date(
+                              latestInterviewData.date
+                            ).toLocaleDateString()}
+                          </Text>
+                        </div>
+                        {latestInterviewData.isCurrentSession && (
+                          <div className="flex justify-center lg:justify-end">
+                            <Tag color="blue">Current Session</Tag>
+                          </div>
+                        )}
+                      </div>
+                    </Col>
+
+                    <Col span={24}>
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4 border-t border-gray-100">
+                        <Button
+                          type="primary"
+                          size="large"
+                          onClick={handleStartNewInterview}
+                          icon={<ArrowRightOutlined />}
+                        >
+                          Start New Interview
+                        </Button>
+                        <Button
+                          size="large"
+                          onClick={handleViewResults}
+                          icon={<TrendingUp className="w-4 h-4" />}
+                        >
+                          View Detailed Feedback
+                        </Button>
+                      </div>
+                    </Col>
+                  </Row>
+                ) : (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={
+                      <div className="py-8">
+                        <Text className="text-gray-500 block mb-2">
+                          You haven't completed any interviews yet
+                        </Text>
+                        <Text className="text-sm text-gray-400">
+                          Start your first interview to receive feedback and
+                          improve your skills
+                        </Text>
+                      </div>
+                    }
+                  >
                     <Button
                       type="primary"
+                      size="large"
                       onClick={handleStartNewInterview}
-                      className="mr-4"
+                      icon={<ArrowRightOutlined />}
                     >
-                      Start New Interview
+                      Start Your First Interview
                     </Button>
-                    <Button onClick={handleViewResults}>
-                      View Detailed Feedback
-                    </Button>
-                  </div>
-                </Col>
-              </Row>
-            ) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={
-                  <span className="text-slate-500">
-                    You haven't completed any interviews yet.
-                    <br />
-                    Start an interview to receive feedback and improve your
-                    skills!
-                  </span>
-                }
-              >
-                <Button type="primary" onClick={handleStartNewInterview}>
-                  Start Your First Interview
-                </Button>
-              </Empty>
-            )}
-          </Card>
-        </Col>
-
-        {/* Past Interviews (Only show if there are past interviews) */}
-        {pastInterviews && pastInterviews.length > 0 && (
-          <Col span={24}>
-            <Card
-              title={
-                <div className="flex items-center">
-                  <HistoryOutlined className="mr-2" />
-                  <span>Interview History</span>
-                </div>
-              }
-              className="shadow-sm"
-            >
-              <List
-                dataSource={pastInterviews.slice(0, 5)}
-                renderItem={(interview) => (
-                  <List.Item
-                    actions={[
-                      <Button
-                        key="view"
-                        type="link"
-                        size="small"
-                        onClick={() => handleViewResults(interview.id)}
-                      >
-                        View
-                      </Button>,
-                    ]}
-                  >
-                    <List.Item.Meta
-                      title={
-                        <div className="flex items-center">
-                          <span>
-                            Interview on{" "}
-                            {new Date(
-                              interview.completedAt ||
-                                interview.interviewStartTime
-                            ).toLocaleDateString()}
-                          </span>
-                          <Tag
-                            color="green"
-                            className="ml-2"
-                          >{`Score: ${interview.finalScore}`}</Tag>
-                        </div>
-                      }
-                      description={
-                        interview.finalSummary
-                          ? interview.finalSummary.substring(0, 100) + "..."
-                          : "No summary available."
-                      }
-                    />
-                  </List.Item>
+                  </Empty>
                 )}
-              />
-
-              {pastInterviews.length > 5 && (
-                <div className="text-center mt-4">
-                  <Button onClick={() => handleViewResults()}>
-                    View All Interviews
-                  </Button>
-                </div>
-              )}
-            </Card>
+              </div>
+            </div>
           </Col>
-        )}
-      </Row>
+
+          {/* Interview History */}
+          {pastInterviews && pastInterviews.length > 0 && (
+            <Col span={24}>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                  <div className="flex items-center space-x-2">
+                    <HistoryOutlined className="text-gray-600" />
+                    <Title level={4} className="m-0">
+                      Interview History
+                    </Title>
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  <List
+                    dataSource={pastInterviews.slice(0, 5)}
+                    renderItem={(interview) => (
+                      <List.Item
+                        className="px-4 py-3 hover:bg-gray-50 rounded-lg transition-colors"
+                        actions={[
+                          <Button
+                            key="view"
+                            type="link"
+                            size="small"
+                            onClick={() => handleViewResults(interview.id)}
+                            icon={<EyeOutlined />}
+                          >
+                            View
+                          </Button>,
+                        ]}
+                      >
+                        <List.Item.Meta
+                          avatar={
+                            <div className="w-12 h-12 bg-gradient-to-br from-violet-100 to-indigo-100 rounded-lg flex items-center justify-center">
+                              <Award className="w-6 h-6 text-violet-600" />
+                            </div>
+                          }
+                          title={
+                            <div className="flex items-center space-x-2">
+                              <Text className="font-medium">
+                                {new Date(
+                                  interview.completedAt ||
+                                    interview.interviewStartTime
+                                ).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                              </Text>
+                              <Tag
+                                color={
+                                  interview.finalScore >= 80
+                                    ? "success"
+                                    : interview.finalScore >= 60
+                                    ? "warning"
+                                    : "error"
+                                }
+                              >
+                                Score: {interview.finalScore}
+                              </Tag>
+                            </div>
+                          }
+                          description={
+                            <Text className="text-sm text-gray-500">
+                              {interview.finalSummary
+                                ? interview.finalSummary.substring(0, 100) +
+                                  "..."
+                                : "No summary available"}
+                            </Text>
+                          }
+                        />
+                      </List.Item>
+                    )}
+                  />
+
+                  {pastInterviews.length > 5 && (
+                    <div className="text-center mt-6 pt-4 border-t border-gray-100">
+                      <Button onClick={() => handleViewResults()}>
+                        View All Interviews ({pastInterviews.length})
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Col>
+          )}
+        </Row>
+      </div>
+
+      {/* Mobile FAB for Start Interview */}
+      <div className="md:hidden fixed bottom-6 right-6 z-50">
+        <Button
+          type="primary"
+          size="large"
+          shape="circle"
+          icon={<ArrowRightOutlined />}
+          onClick={handleStartNewInterview}
+          className="w-14 h-14 shadow-lg"
+        />
+      </div>
+
+      {/* Resume Interview Modal */}
+      <Modal
+        title="Resume Previous Interview"
+        open={showResumeModal}
+        onCancel={() => setShowResumeModal(false)}
+        footer={null}
+        maskClosable={false}
+        className="top-20"
+      >
+        <div className="py-4">
+          <Text className="block mb-6 text-gray-600">
+            You have an unfinished interview in progress. Would you like to
+            continue where you left off?
+          </Text>
+          <div className="flex justify-end space-x-3">
+            <Button
+              onClick={() => setShowResumeModal(false)}
+              icon={<UndoOutlined />}
+              size="large"
+            >
+              Start New
+            </Button>
+            <Button
+              type="primary"
+              onClick={handleResumeClick}
+              loading={resumeLoading}
+              icon={<PlayCircleOutlined />}
+              size="large"
+            >
+              Resume Interview
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
+
+  // Function to handle resuming the interview with loading state
+  function handleResumeClick() {
+    setResumeLoading(true);
+    try {
+      // Direct dispatch approach as fallback
+      if (!handleResumeInterview) {
+        console.log("Using direct dispatch approach for resume");
+        dispatch(resumeInterview());
+        setTimeout(() => {
+          window.location.href = "/interviewee/interview";
+        }, 300);
+      } else {
+        // Use the hook's resume handler
+        console.log("Using hook's handleResumeInterview method");
+        handleResumeInterview();
+      }
+    } catch (error) {
+      console.error("Failed to resume interview:", error);
+      // If resume fails, close modal and show error
+      message.error(
+        "Failed to resume interview. Please try starting a new one."
+      );
+      setShowResumeModal(false);
+      setResumeLoading(false);
+    }
+  }
 };
 
 export default DashboardPage;
