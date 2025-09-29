@@ -20,9 +20,7 @@ import {
   CloseCircleFilled,
   TrophyFilled,
   HomeOutlined,
-  ReloadOutlined,
-  PercentageOutlined,
-  StarFilled,
+  ReloadOutlined
 } from "@ant-design/icons";
 import useInterviewFlow from "../../hooks/interviewee/useInterviewFlow";
 import { useNavigate } from "react-router-dom";
@@ -245,7 +243,6 @@ const SummaryPage = () => {
                     title="Questions"
                     value={metrics.totalQuestions}
                     suffix={`/${metrics.totalQuestions}`}
-                    prefix={<PercentageOutlined />}
                   />
                 </Col>
                 <Col span={8}>

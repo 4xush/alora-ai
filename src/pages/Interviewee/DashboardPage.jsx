@@ -101,7 +101,6 @@ const DashboardPage = () => {
   }
 
   const latestInterviewData = getLatestInterviewData();
-  console.log("Latest Interview Data:", latestInterviewData);
   return (
     <div className="p-8">
       <Row gutter={[24, 24]}>
@@ -110,10 +109,10 @@ const DashboardPage = () => {
           <Card className="shadow-sm">
             <Row align="middle" gutter={[24, 0]}>
               <Col xs={24} md={16}>
-                <Title level={2} className="mb-2">
+                <Title level={3} className="mb-2">
                   Welcome{profile?.name ? `, ${profile.name}` : ""}!
                 </Title>
-                <Paragraph className="text-lg text-slate-600">
+                <Paragraph className="text-md text-slate-600">
                   Practice your interview skills with our AI-powered mock
                   interviewer.
                   {profile?.name

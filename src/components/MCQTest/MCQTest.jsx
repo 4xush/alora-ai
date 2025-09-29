@@ -15,30 +15,25 @@ import {
   Alert,
   Spin,
   Tag,
-  Divider,
 } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import {
   ClockCircleOutlined,
-  QuestionCircleOutlined,
   CheckOutlined,
   RightOutlined,
 } from "@ant-design/icons";
 import {
-  pauseInterview,
-  resumeInterview,
   setError,
   clearError,
   nextQuestion,
 } from "../../store/intervieweeSlice.js";
 import { store } from "../../store/store.js";
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 const MCQTest = ({ onAnswer }) => {
   const dispatch = useDispatch();
 
-  // Get state from Redux
   const {
     questions,
     currentQuestionIndex,
@@ -49,29 +44,24 @@ const MCQTest = ({ onAnswer }) => {
     error,
   } = useSelector((state) => state.interviewee);
 
-  // Local state
   const [selectedOption, setSelectedOption] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(30);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(null);
 
-  // Refs to track current state and prevent race conditions
   const currentQuestionIndexRef = useRef(currentQuestionIndex);
   const isSubmittingRef = useRef(false);
 
-  // Get current question
   const currentQuestion = questions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const progress = Math.round(
     ((currentQuestionIndex + 1) / questions.length) * 100
   );
 
-  // Force component re-render when question index changes
   const questionKey = useMemo(() => {
     return `${currentQuestionIndex}-${currentQuestion?.id || "no-question"}`;
   }, [currentQuestionIndex, currentQuestion?.id]);
 
-  // Update refs when Redux state changes
   useEffect(() => {
     currentQuestionIndexRef.current = currentQuestionIndex;
   }, [currentQuestionIndex]);
@@ -80,33 +70,15 @@ const MCQTest = ({ onAnswer }) => {
     isSubmittingRef.current = isSubmitting;
   }, [isSubmitting]);
 
-  // Handle answer submission - defining this FIRST before it is used in handleTimeUp
   const handleSubmitAnswer = useCallback(
     async (isTimeUp = false, fromAutoSubmit = false) => {
-      // Use refs to get the most current state
       const currentIndex = currentQuestionIndexRef.current;
       const currentQ = questions[currentIndex];
       const isCurrentlySubmitting = isSubmittingRef.current;
 
       if (isCurrentlySubmitting || !currentQ) {
-        console.log("MCQTest: Submit blocked", {
-          isSubmitting: isCurrentlySubmitting,
-          hasCurrentQuestion: !!currentQ,
-          currentIndex,
-          questionKey,
-        });
         return;
       }
-
-      console.log("MCQTest: Submitting answer", {
-        currentQuestionIndex: currentIndex,
-        questionId: currentQ.id,
-        selectedOption,
-        isTimeUp,
-        fromAutoSubmit,
-        isLastQuestion: currentIndex === questions.length - 1,
-        questionsTotal: questions.length,
-      });
 
       setIsSubmitting(true);
       isSubmittingRef.current = true;
@@ -116,10 +88,9 @@ const MCQTest = ({ onAnswer }) => {
           ? Math.round((Date.now() - questionStartTime) / 1000)
           : (currentQ.seconds || 30) - timeRemaining;
 
-        // Ensure we're just sending the selected answer text, not the whole object
         const answerData = {
           questionId: currentQ.id,
-          answer: selectedOption || "", // Empty string if no selection
+          answer: selectedOption || "",
           secondsSpent,
           isLast: currentIndex === questions.length - 1,
           isMultipleChoice: true,
@@ -129,33 +100,10 @@ const MCQTest = ({ onAnswer }) => {
           fromAutoSubmit: fromAutoSubmit || isTimeUp,
         };
 
-        console.log("MCQTest: Calling onAnswer with data", answerData);
-
-        // Call the parent's onAnswer handler
         if (onAnswer) {
           await onAnswer(answerData);
-          console.log("MCQTest: onAnswer completed successfully");
-
-          // If this is the last question, don't expect component to update further
-          if (answerData.isLast) {
-            console.log(
-              "MCQTest: Last question submitted, interview will complete"
-            );
-          } else {
-            // Only for non-final questions, check state updates
-            setTimeout(() => {
-              console.log("MCQTest: Post-answer state check", {
-                currentQuestionIndex,
-                questionsLength: questions.length,
-                shouldHaveAdvanced: !answerData.isLast,
-              });
-            }, 200);
-          }
-        } else {
-          console.error("MCQTest: No onAnswer handler provided!");
         }
       } catch (error) {
-        console.error("MCQTest: Failed to submit answer:", error);
         dispatch(setError("Failed to submit answer. Please try again."));
       } finally {
         setIsSubmitting(false);
@@ -172,10 +120,8 @@ const MCQTest = ({ onAnswer }) => {
     ]
   );
 
-  // Handle time up (auto-submit)
   const handleTimeUp = useCallback(async () => {
     if (isSubmittingRef.current) {
-      console.log("MCQTest: Time up but already submitting, skipping");
       return;
     }
 
@@ -183,117 +129,44 @@ const MCQTest = ({ onAnswer }) => {
     const currentQ = questions[currentIndex];
 
     if (!currentQ) {
-      console.log("MCQTest: Time up but no current question, skipping");
       return;
     }
 
-    console.log("MCQTest: Time up, auto-submitting answer", {
-      currentIndex,
-      questionId: currentQ.id,
-    });
-
-    // Submit with no answer or current selection (true = isTimeUp, true = fromAutoSubmit)
     await handleSubmitAnswer(true, true);
   }, [questions, handleSubmitAnswer]);
 
-  // Monitor currentQuestionIndex changes specifically
   useEffect(() => {
-    console.log("MCQTest: currentQuestionIndex changed", {
-      oldIndex: "tracked in effect",
-      newIndex: currentQuestionIndex,
-      totalQuestions: questions.length,
-      currentQuestionId: currentQuestion?.id,
-      currentQuestionText: currentQuestion?.text?.substring(0, 50),
-    });
-  }, [currentQuestionIndex, questions.length, currentQuestion?.id]);
-
-  // Direct Redux store subscription for debugging
-  useEffect(() => {
-    // Get the current interview status
     const currentStatus = store.getState().interviewee.status;
 
-    // Don't set up subscription if the interview is already completed or not in progress
     if (currentStatus === "completed" || !inProgress) {
-      console.log("MCQTest: Not setting up subscription", {
-        completed: currentStatus === "completed",
-        inProgress,
-      });
       return;
     }
 
-    console.log("MCQTest: Setting up Redux store subscription");
-
     let isComponentMounted = true;
     const unsubscribe = store.subscribe(() => {
-      // If component is unmounted, don't process updates
       if (!isComponentMounted) return;
 
       const state = store.getState();
       const interviewStatus = state.interviewee.status;
 
-      // Immediately return if interview is completed or no longer in progress
       if (interviewStatus === "completed" || !state.interviewee.inProgress) {
-        console.log(
-          "MCQTest: Skipping store update - interview completed or not in progress"
-        );
         return;
-      }
-
-      const reduxQuestionIndex = state.interviewee.currentQuestionIndex;
-      const reduxQuestionsLength = state.interviewee.questions.length;
-
-      console.log("MCQTest: Redux store changed", {
-        reduxCurrentQuestionIndex: reduxQuestionIndex,
-        componentCurrentQuestionIndex: currentQuestionIndex,
-        reduxQuestionsLength,
-        componentQuestionsLength: questions.length,
-        stateSync: reduxQuestionIndex === currentQuestionIndex,
-        interviewStatus,
-      });
-
-      // Check if there's a mismatch (but only log it, don't force update)
-      if (reduxQuestionIndex !== currentQuestionIndex) {
-        console.warn("MCQTest: State mismatch detected!", {
-          redux: reduxQuestionIndex,
-          component: currentQuestionIndex,
-          difference: reduxQuestionIndex - currentQuestionIndex,
-        });
       }
     });
 
     return () => {
-      console.log("MCQTest: Cleaning up Redux store subscription");
       isComponentMounted = false;
       unsubscribe();
     };
   }, [currentQuestionIndex, questions.length, inProgress]);
 
-  // Initialize question timer
   useEffect(() => {
-    console.log("MCQTest: Question effect triggered", {
-      currentQuestionIndex,
-      currentQuestionId: currentQuestion?.id,
-      questionsLength: questions.length,
-      inProgress,
-      hasCurrentQuestion: !!currentQuestion,
-      questionKey,
-    });
-
     if (currentQuestion && inProgress) {
-      console.log("MCQTest: Starting new question", {
-        index: currentQuestionIndex,
-        questionId: currentQuestion.id,
-        timeLimit: currentQuestion.seconds,
-        questionText: currentQuestion.text.substring(0, 50) + "...",
-      });
-
       const timeLimit = currentQuestion.seconds || 30;
       setTimeRemaining(timeLimit);
       setSelectedOption(null);
       setQuestionStartTime(Date.now());
-      setIsSubmitting(false); // Reset submitting state for new question
-
-      // Clear any previous errors
+      setIsSubmitting(false);
       dispatch(clearError());
     }
   }, [
@@ -305,7 +178,6 @@ const MCQTest = ({ onAnswer }) => {
     questionKey,
   ]);
 
-  // Timer countdown
   useEffect(() => {
     if (!inProgress || paused || timeRemaining <= 0 || isSubmitting) return;
 
@@ -313,8 +185,6 @@ const MCQTest = ({ onAnswer }) => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          // Auto-submit when time expires
-          console.log("MCQTest: Timer expired, auto-submitting");
           handleTimeUp();
           return 0;
         }
@@ -325,316 +195,343 @@ const MCQTest = ({ onAnswer }) => {
     return () => clearInterval(timer);
   }, [timeRemaining, paused, inProgress, isSubmitting, handleTimeUp]);
 
-  // Handle pause/resume
-  const handlePauseToggle = () => {
-    if (paused) {
-      dispatch(resumeInterview());
-    } else {
-      dispatch(pauseInterview());
-    }
-  };
-
-  // Test function to manually advance question
   const handleTestNextQuestion = () => {
-    console.log("MCQTest: Manual test - advancing to next question");
     dispatch(nextQuestion());
   };
 
-  // Format time display
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Get difficulty color
   const getDifficultyColor = (level) => {
     switch (level?.toLowerCase()) {
       case "easy":
-        return "green";
+        return "success";
       case "medium":
-        return "orange";
+        return "warning";
       case "hard":
-        return "red";
+        return "error";
       default:
-        return "blue";
+        return "default";
     }
   };
 
-  // Loading state
   if (loading) {
     return (
-      <Card>
-        <div style={{ textAlign: "center", padding: "40px 0" }}>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
           <Spin size="large" />
-          <div style={{ marginTop: 16 }}>
-            <Text>Loading your interview questions...</Text>
+          <div className="mt-4 text-gray-600">
+            Loading your interview questions...
           </div>
         </div>
-      </Card>
+      </div>
     );
   }
 
-  // Error state
   if (error) {
     return (
-      <Card>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
         <Alert
           message="Question Loading Error"
           description={error}
           type="error"
           showIcon
+          className="max-w-lg"
           action={
             <Button size="small" onClick={() => dispatch(clearError())}>
               Dismiss
             </Button>
           }
         />
-      </Card>
+      </div>
     );
   }
 
-  // No questions state
   if (!questions.length || !currentQuestion) {
-    console.log("MCQTest: No questions or current question", {
-      questionsLength: questions.length,
-      currentQuestionIndex,
-      hasCurrentQuestion: !!currentQuestion,
-      questions: questions.map((q) => ({
-        id: q.id,
-        text: q.text.substring(0, 30) + "...",
-      })),
-    });
-
     return (
-      <Card>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
         <Alert
           message="No Questions Available"
           description="Unable to load interview questions. Please try refreshing or contact support."
           type="warning"
           showIcon
+          className="max-w-lg"
         />
-      </Card>
+      </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-      <Space direction="vertical" style={{ width: "100%" }} size="large">
-        {/* Progress Header */}
-        <Card size="small">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <div>
-              <Text strong>
-                Question {currentQuestionIndex + 1} of {questions.length}
-              </Text>
-              <div style={{ marginTop: 4 }}>
-                <Progress
-                  percent={progress}
-                  size="small"
-                  showInfo={false}
-                  strokeColor={{
-                    "0%": "#7c3aed",
-                    "100%": "#a855f7",
-                  }}
-                />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Top Navigation Bar */}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">OA</span>
+                </div>
+                <span className="text-lg font-semibold text-gray-800 hidden sm:block">
+                  Online Assessment
+                </span>
               </div>
             </div>
 
-            <div style={{ textAlign: "right" }}>
+            <div className="flex items-center space-x-4">
+              <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 bg-blue-50 rounded-lg">
+                <span className="text-sm text-gray-600">Question</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {currentQuestionIndex + 1}/{questions.length}
+                </span>
+              </div>
+
               <div
-                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg ${
+                  timeRemaining <= 10 ? "bg-red-50" : "bg-gray-50"
+                }`}
               >
-                <Tag color={getDifficultyColor(currentQuestion.level)}>
-                  {currentQuestion.level || "Medium"}
-                </Tag>
-                <Tag
-                  icon={<ClockCircleOutlined />}
-                  color={timeRemaining <= 10 ? "red" : "blue"}
+                <ClockCircleOutlined
+                  className={
+                    timeRemaining <= 10 ? "text-red-500" : "text-gray-500"
+                  }
+                />
+                <span
+                  className={`text-sm font-mono font-semibold ${
+                    timeRemaining <= 10 ? "text-red-600" : "text-gray-700"
+                  }`}
                 >
                   {formatTime(timeRemaining)}
-                </Tag>
+                </span>
               </div>
-              {paused && (
-                <Tag color="orange" style={{ marginTop: 4 }}>
-                  PAUSED
-                </Tag>
-              )}
             </div>
           </div>
-        </Card>
+        </div>
+      </div>
 
-        {/* Question Card */}
-        <Card
-          title={
-            <Space>
-              <QuestionCircleOutlined />
-              <span>Interview Question</span>
-            </Space>
-          }
-          extra={
-            <Button
-              size="small"
-              onClick={handlePauseToggle}
-              disabled={isSubmitting}
-            >
-              {paused ? "Resume" : "Pause"}
-            </Button>
-          }
-        >
-          <Space direction="vertical" style={{ width: "100%" }} size="large">
-            {/* Question Text */}
-            <div>
-              <Title level={4} style={{ marginBottom: 16 }}>
-                {currentQuestion.text}
-              </Title>
-
-              {currentQuestion.context && (
-                <Paragraph type="secondary">
-                  <strong>Context:</strong> {currentQuestion.context}
-                </Paragraph>
-              )}
-            </div>
-
-            <Divider />
-
-            {/* Answer Options */}
-            <div>
-              <Text strong style={{ marginBottom: 16, display: "block" }}>
-                Select your answer:
-              </Text>
-
-              <Radio.Group
-                onChange={(e) => setSelectedOption(e.target.value)}
-                value={selectedOption}
-                style={{ width: "100%" }}
-                disabled={paused || isSubmitting}
-              >
-                <Space
-                  direction="vertical"
-                  style={{ width: "100%" }}
-                  size="middle"
-                >
-                  {currentQuestion.options?.map((option, index) => (
-                    <Radio
-                      key={`${questionKey}-option-${index}`}
-                      value={option}
-                      style={{
-                        padding: "12px",
-                        border: "1px solid #f0f0f0",
-                        borderRadius: "6px",
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "flex-start",
-                        marginBottom: 0,
-                      }}
-                    >
-                      <span style={{ marginLeft: "8px", flex: 1 }}>
-                        {option}
-                      </span>
-                    </Radio>
-                  ))}
-                </Space>
-              </Radio.Group>
-            </div>
-
-            {/* Warning for no selection */}
-            {timeRemaining <= 10 && !selectedOption && (
-              <Alert
-                message="Time running out!"
-                description="Please select an answer or the question will be auto-submitted."
-                type="warning"
-                showIcon
-              />
-            )}
-
-            {paused && (
-              <Alert
-                message="Interview Paused"
-                description="Timer is paused. Click Resume to continue."
-                type="info"
-                showIcon
-              />
-            )}
-          </Space>
-        </Card>
-
-        {/* Submit Button */}
-        <Card size="small">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
+      {/* Progress Bar */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Progress
+            percent={progress}
+            showInfo={false}
+            strokeColor={{
+              "0%": "#7c3aed",
+              "100%": "#4f46e5",
             }}
-          >
-            <div>
+            className="mb-0"
+            strokeWidth={3}
+          />
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Question Panel - Takes more space on desktop */}
+          <div className="lg:col-span-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              {/* Question Header */}
+              <div className="px-6 py-4 bg-gradient-to-r from-violet-50 to-indigo-50 border-b border-gray-200">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center space-x-3">
+                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm text-violet-600 font-semibold text-sm">
+                      {currentQuestionIndex + 1}
+                    </span>
+                    <span className="text-gray-700 font-medium">
+                      Multiple Choice Question
+                    </span>
+                  </div>
+                  <Tag
+                    color={getDifficultyColor(currentQuestion.level)}
+                    className="m-0"
+                  >
+                    {currentQuestion.level || "Medium"}
+                  </Tag>
+                </div>
+              </div>
+
+              {/* Question Content */}
+              <div className="px-6 py-6">
+                <Title level={4} className="text-gray-900 mb-4 leading-relaxed">
+                  {currentQuestion.text}
+                </Title>
+
+                {currentQuestion.context && (
+                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <Text className="text-sm text-gray-700">
+                      <strong className="text-gray-900">Context:</strong>{" "}
+                      {currentQuestion.context}
+                    </Text>
+                  </div>
+                )}
+
+                {/* Answer Options */}
+                <div className="mt-6">
+                  <Text className="text-sm font-medium text-gray-700 mb-3 block">
+                    Select the correct answer:
+                  </Text>
+
+                  <Radio.Group
+                    onChange={(e) => setSelectedOption(e.target.value)}
+                    value={selectedOption}
+                    className="w-full"
+                    disabled={paused || isSubmitting}
+                  >
+                    <div className="space-y-3">
+                      {currentQuestion.options?.map((option, index) => (
+                        <div
+                          key={`${questionKey}-option-${index}`}
+                          className={`relative transition-all duration-200 ${
+                            selectedOption === option
+                              ? "ring-2 ring-violet-500 bg-violet-50 rounded-lg"
+                              : "hover:bg-gray-50"
+                          }`}
+                        >
+                          <Radio
+                            value={option}
+                            className="w-full p-4 border border-gray-200 rounded-lg flex items-start m-0"
+                          >
+                            <div className="flex items-start w-full">
+                              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-medium mr-3 mt-0.5 flex-shrink-0">
+                                {String.fromCharCode(65 + index)}
+                              </span>
+                              <span className="flex-1 text-gray-800 leading-relaxed">
+                                {option}
+                              </span>
+                            </div>
+                          </Radio>
+                        </div>
+                      ))}
+                    </div>
+                  </Radio.Group>
+                </div>
+
+                {/* Warning Alert */}
+                {timeRemaining <= 10 && !selectedOption && (
+                  <Alert
+                    message="Time running out!"
+                    description="Please select an answer or the question will be auto-submitted."
+                    type="warning"
+                    showIcon
+                    className="mt-6"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Side Panel - Info and Actions */}
+          <div className="lg:col-span-4 space-y-4">
+            {/* Question Info Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">
+                Assessment Progress
+              </h3>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center pb-3 border-b border-gray-100">
+                  <span className="text-sm text-gray-600">Total Questions</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {questions.length}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center pb-3 border-b border-gray-100">
+                  <span className="text-sm text-gray-600">
+                    Current Question
+                  </span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {currentQuestionIndex + 1}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center pb-3 border-b border-gray-100">
+                  <span className="text-sm text-gray-600">Remaining</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {questions.length - currentQuestionIndex - 1}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Progress</span>
+                  <span className="text-sm font-semibold text-violet-600">
+                    {progress}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <div className="space-y-3">
+                <Button
+                  type="primary"
+                  size="middle"
+                  block
+                  onClick={() => handleSubmitAnswer(false, false)}
+                  disabled={!selectedOption || paused || isSubmitting}
+                  loading={isSubmitting}
+                  icon={isLastQuestion ? <CheckOutlined /> : <RightOutlined />}
+                  className="h-10 font-medium"
+                >
+                  {isSubmitting
+                    ? "Submitting..."
+                    : isLastQuestion
+                    ? "Finish Assessment"
+                    : "Next Question"}
+                </Button>
+
+                <Button
+                  danger
+                  size="middle"
+                  block
+                  onClick={handleTestNextQuestion}
+                  disabled={isLastQuestion || paused || isSubmitting}
+                  className="h-9 text-xs"
+                >
+                  Skip Question
+                </Button>
+              </div>
+
               {selectedOption ? (
-                <Text type="success">
-                  <CheckOutlined /> Answer selected
-                </Text>
+                <div className="mt-4 flex items-center justify-center text-green-600 text-sm">
+                  <CheckOutlined className="mr-1" />
+                  <span>Answer selected</span>
+                </div>
               ) : (
-                <Text type="secondary">Please select an answer above</Text>
+                <div className="mt-4 text-center text-gray-500 text-sm">
+                  Please select an answer
+                </div>
               )}
             </div>
 
-            <div style={{ display: "flex", gap: "8px" }}>
-              <Button
-                type="primary"
-                size="large"
-                onClick={() =>
-                  handleSubmitAnswer(false, false)
-                } /* false for isTimeUp, false for fromAutoSubmit */
-                disabled={!selectedOption || paused || isSubmitting}
-                loading={isSubmitting}
-                icon={isLastQuestion ? <CheckOutlined /> : <RightOutlined />}
-              >
-                {isSubmitting
-                  ? "Submitting..."
-                  : isLastQuestion
-                  ? "Submit & Finish Interview"
-                  : "Next Question"}
-              </Button>
-
-              <Button
-                type="default"
-                size="large"
-                onClick={handleTestNextQuestion}
-                disabled={isLastQuestion || paused || isSubmitting}
-                style={{
-                  backgroundColor: "#ff4d4f",
-                  borderColor: "#ff4d4f",
-                  color: "white",
-                }}
-              >
-                TEST: Skip Question
-              </Button>
+            {/* Instructions */}
+            <div className="bg-blue-50 rounded-xl border border-blue-100 p-5">
+              <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                <span className="mr-2">💡</span> Instructions
+              </h3>
+              <ul className="text-xs text-blue-800 space-y-1.5 leading-relaxed">
+                <li>• Select the most appropriate answer</li>
+                <li>• Auto-submits when timer expires</li>
+                <li>• Cannot change answer after submission</li>
+                {isLastQuestion && (
+                  <li className="font-semibold">
+                    • This is the final question!
+                  </li>
+                )}
+              </ul>
             </div>
           </div>
-        </Card>
-
-        {/* Instructions */}
-        <Card size="small">
-          <Text type="secondary" style={{ fontSize: "12px" }}>
-            💡 <strong>Instructions:</strong> Select the best answer from the
-            options above. You can pause the interview if needed. The question
-            will auto-submit when time runs out.
-            {isLastQuestion && " This is the final question - good luck!"}
-          </Text>
-        </Card>
-      </Space>
+        </div>
+      </div>
     </div>
   );
 };
 
-// Memoize component to prevent unnecessary re-renders while ensuring it updates when needed
 export default React.memo(MCQTest, (prevProps, nextProps) => {
-  // Re-render if onAnswer prop changes (shouldn't happen but safety check)
   return prevProps.onAnswer === nextProps.onAnswer;
 });
