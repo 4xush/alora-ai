@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   Typography,
@@ -125,6 +126,8 @@ const InterviewSummary = ({ score, summary, onComplete }) => {
   }, [score, questions, answers, metrics, currentInterviewId]);
 
   // Event handlers
+  const navigate = useNavigate();
+
   const handleBackToDashboard = () => {
     console.log("InterviewSummary: Explicitly navigating back to dashboard");
 
@@ -149,6 +152,9 @@ const InterviewSummary = ({ score, summary, onComplete }) => {
         );
         onComplete();
       }
+
+      // Direct navigation for improved routing
+      navigate("/interviewee/dashboard");
     }, 50);
   };
 
@@ -167,7 +173,10 @@ const InterviewSummary = ({ score, summary, onComplete }) => {
       if (onComplete) {
         onComplete();
       }
-    }, 0);
+
+      // Navigate to pre-interview
+      navigate("/interviewee/pre-interview");
+    }, 50);
   };
 
   const handleDownloadReport = () => {

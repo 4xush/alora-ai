@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
     PAST_INTERVIEWS: 'pastInterviews',
     USER_PROFILE: 'userProfile',
     FIRST_VISIT: 'hasVisitedBefore',
+    INTERVIEW_PROGRESS: 'interviewProgress',
 };
 
 /**

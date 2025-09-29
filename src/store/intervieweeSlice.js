@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { aiService } from "../services/aiService.js";
+import { STORAGE_KEYS } from "../utils/storageUtils.js";
 
 // Helper function to ensure state has required properties
 const ensureStateProperties = (state) => {
@@ -197,6 +198,11 @@ const intervieweeSlice = createSlice({
       console.log("Starting new interview");
       ensureStateProperties(state);
 
+      // Clean up any previous interview progress data from localStorage
+      const keys = Object.keys(localStorage);
+      const progressKeys = keys.filter(k => k.startsWith(STORAGE_KEYS.INTERVIEW_PROGRESS));
+      progressKeys.forEach(key => localStorage.removeItem(key));
+
       // Create new interview session
       state.currentInterviewId = createInterviewId();
       state.interviewStartTime = new Date().toISOString();
@@ -219,7 +225,45 @@ const intervieweeSlice = createSlice({
 
     resumeInterview(state) {
       console.log("Resuming interview");
+      ensureStateProperties(state);
+
+      // Check if all questions have been answered already
+      const allQuestionsAnswered =
+        state.questions.length > 0 &&
+        state.answers.length >= state.questions.length &&
+        state.currentQuestionIndex === state.questions.length - 1;
+
+      if (allQuestionsAnswered) {
+        console.log("All questions already answered, completing interview instead of resuming");
+
+        // Set as completed with fallback score if needed
+        state.status = "completed";
+        state.inProgress = false;
+        state.paused = false;
+
+        // If no finalScore yet, calculate a basic one
+        if (state.finalScore === null) {
+          const answeredCorrectly = state.answers.filter(a => a.score && a.score >= 7).length;
+          state.finalScore = Math.round((answeredCorrectly / state.questions.length) * 100);
+          state.finalSummary = "Interview completed successfully.";
+        }
+
+        // Go to summary page
+        state.currentStep = 3;
+        return;
+      }
+
+      // Normal resume flow
       state.paused = false;
+      state.inProgress = true;
+      state.status = "in_progress";
+
+      // If we're resuming an interview, make sure we're on the right step
+      if (state.currentStep !== 2) {
+        state.currentStep = 2; // Set to interview step
+      }
+
+      console.log("Interview resumed successfully");
     },
 
     pauseInterview(state) {
@@ -248,11 +292,40 @@ const intervieweeSlice = createSlice({
         (a) => a.questionId === questionId,
       );
 
+      // Ensure answer is stored in a consistent format
+      // Handle various types of answers (string, number, object)
+      let processedAnswer;
+
+      if (answer === undefined || answer === null) {
+        processedAnswer = "";
+      } else if (typeof answer === "object") {
+        // For complex objects like MCQ selections
+        // Convert to a string representation or extract the relevant value
+        if (answer.value !== undefined) {
+          processedAnswer = answer.value;  // Use value property if available
+        } else if (answer.text !== undefined) {
+          processedAnswer = answer.text;   // Use text property if available
+        } else {
+          // Try to stringify, fallback to empty string
+          try {
+            processedAnswer = JSON.stringify(answer);
+          } catch (e) {
+            console.error("Could not stringify answer object:", e);
+            processedAnswer = "[Complex selection]";
+          }
+        }
+      } else {
+        // Simple value (string, number, boolean)
+        processedAnswer = answer;
+      }
+
       const answerData = {
         questionId,
-        answer,
+        answer: processedAnswer,
         secondsSpent,
         timestamp: new Date().toISOString(),
+        // Store the original answer for reference (for complex objects)
+        originalAnswer: typeof answer === "object" ? answer : undefined
       };
 
       if (existingAnswerIndex >= 0) {
@@ -336,6 +409,15 @@ const intervieweeSlice = createSlice({
         }));
       }
 
+      // Clean up all interview progress data from localStorage
+      const keys = Object.keys(localStorage);
+      const progressKeys = keys.filter(k => k.startsWith(STORAGE_KEYS.INTERVIEW_PROGRESS));
+      progressKeys.forEach(key => localStorage.removeItem(key));
+
+      // For backward compatibility
+      localStorage.removeItem("interviewee_resumable_interview");
+      console.log("Interview completed and saved to history");
+
       // Create completed interview record
       const completedInterview = {
         id: state.currentInterviewId || createInterviewId(),
@@ -389,6 +471,11 @@ const intervieweeSlice = createSlice({
         hasProfile: !!state.profile?.name,
         hasResume: !!state.resume?.text
       });
+
+      // Clean up any previous interview progress data from localStorage
+      const keys = Object.keys(localStorage);
+      const progressKeys = keys.filter(k => k.startsWith(STORAGE_KEYS.INTERVIEW_PROGRESS));
+      progressKeys.forEach(key => localStorage.removeItem(key));
 
       ensureStateProperties(state);
 

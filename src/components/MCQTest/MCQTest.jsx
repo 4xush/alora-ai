@@ -82,7 +82,7 @@ const MCQTest = ({ onAnswer }) => {
 
   // Handle answer submission - defining this FIRST before it is used in handleTimeUp
   const handleSubmitAnswer = useCallback(
-    async (isTimeUp = false) => {
+    async (isTimeUp = false, fromAutoSubmit = false) => {
       // Use refs to get the most current state
       const currentIndex = currentQuestionIndexRef.current;
       const currentQ = questions[currentIndex];
@@ -103,6 +103,7 @@ const MCQTest = ({ onAnswer }) => {
         questionId: currentQ.id,
         selectedOption,
         isTimeUp,
+        fromAutoSubmit,
         isLastQuestion: currentIndex === questions.length - 1,
         questionsTotal: questions.length,
       });
@@ -115,6 +116,7 @@ const MCQTest = ({ onAnswer }) => {
           ? Math.round((Date.now() - questionStartTime) / 1000)
           : (currentQ.seconds || 30) - timeRemaining;
 
+        // Ensure we're just sending the selected answer text, not the whole object
         const answerData = {
           questionId: currentQ.id,
           answer: selectedOption || "", // Empty string if no selection
@@ -124,6 +126,7 @@ const MCQTest = ({ onAnswer }) => {
           options: currentQ.options,
           correctAnswer: currentQ.correctAnswer,
           wasTimeUp: isTimeUp,
+          fromAutoSubmit: fromAutoSubmit || isTimeUp,
         };
 
         console.log("MCQTest: Calling onAnswer with data", answerData);
@@ -189,8 +192,8 @@ const MCQTest = ({ onAnswer }) => {
       questionId: currentQ.id,
     });
 
-    // Submit with no answer or current selection
-    await handleSubmitAnswer(true);
+    // Submit with no answer or current selection (true = isTimeUp, true = fromAutoSubmit)
+    await handleSubmitAnswer(true, true);
   }, [questions, handleSubmitAnswer]);
 
   // Monitor currentQuestionIndex changes specifically
@@ -585,7 +588,9 @@ const MCQTest = ({ onAnswer }) => {
               <Button
                 type="primary"
                 size="large"
-                onClick={() => handleSubmitAnswer(false)}
+                onClick={() =>
+                  handleSubmitAnswer(false, false)
+                } /* false for isTimeUp, false for fromAutoSubmit */
                 disabled={!selectedOption || paused || isSubmitting}
                 loading={isSubmitting}
                 icon={isLastQuestion ? <CheckOutlined /> : <RightOutlined />}

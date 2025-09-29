@@ -85,6 +85,14 @@ function pickMCQQuestions(questionDistribution) {
 
 export const aiService = {
   async extractResumeInfo({ resumeText }) {
+    console.log("Starting extractResumeInfo with text length:", resumeText?.length || 0);
+
+    // Check if we have actual text to process
+    if (!resumeText || resumeText.trim().length < 10) {
+      console.error("Resume text too short or empty");
+      return { name: "", email: "", phone: "" };
+    }
+
     // Attempt Gemini; if not configured, return best-effort regex fallback
     const regexFallback = () => {
       console.log("Using regex fallback for resume info extraction");
@@ -158,7 +166,14 @@ export const aiService = {
       };
     };
 
-    if (!genAI) return regexFallback();
+    if (!genAI) {
+      console.log("Gemini API not configured, using regex fallback");
+      return regexFallback();
+    }
+
+    // Always log the first part of the resume for debugging
+    console.log("Resume text preview (first 200 chars):",
+      resumeText.substring(0, 200).replace(/\n/g, "\\n"));
 
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const prompt = `Extract candidate info as JSON with keys name, email, phone. If missing, set to empty string. Resume text: ${resumeText}`;

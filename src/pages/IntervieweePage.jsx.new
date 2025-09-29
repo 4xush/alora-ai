@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Brain, Clock, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { message } from "antd";
 import { store } from "../store/store.js";
@@ -30,16 +30,17 @@ import { upsertCandidate } from "../store/interviewerSlice.js";
 import InterviewFlow from "../components/InterviewFlow/InterviewFlow.jsx";
 import IntervieweeDashboard from "../components/IntervieweeDashboard/IntervieweeDashboard.jsx";
 
-const IntervieweePage = ({ step }) => {
+const IntervieweePage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { step } = useParams();
   const location = useLocation();
-
+  
   // Use selectors for better state access
   const profile = useSelector(selectProfile);
   const resume = useSelector(selectResume);
   const pastInterviews = useSelector(selectPastInterviews);
-
+  
   const {
     inProgress,
     paused,
@@ -67,29 +68,24 @@ const IntervieweePage = ({ step }) => {
     if (!questions.length) return 0;
     return Math.round((answers.length / questions.length) * 100);
   }, [questions.length, answers.length]);
-
+  
   // Route validation effect
   useEffect(() => {
     // If user navigates directly to an interview step without required data,
     // redirect them to the appropriate place
     const hasResumeData = resume && resume.text;
     const hasProfileData = profile && profile.name;
-
+    
     console.log("IntervieweePage: Route validation", {
       step,
       hasResumeData,
       hasProfileData,
     });
 
-    // Ensure user has proper data for interview steps
     if (step === "interview" && (!hasResumeData || !hasProfileData)) {
-      console.log(
-        "IntervieweePage: Missing required data for interview, redirecting to dashboard"
-      );
-      message.warning(
-        "Please complete your profile before starting an interview"
-      );
-      navigate("/interviewee/dashboard");
+      console.log("IntervieweePage: Missing required data for interview, redirecting to dashboard");
+      message.warning('Please complete your profile before starting an interview');
+      navigate('/interviewee/dashboard');
     }
   }, [step, resume, profile, navigate]);
 
@@ -207,7 +203,7 @@ const IntervieweePage = ({ step }) => {
       );
 
       message.success("Interview started! Good luck!");
-
+      
       // Navigate to interview flow
       navigate("/interviewee/interview");
     } catch (error) {
@@ -318,7 +314,7 @@ const IntervieweePage = ({ step }) => {
             );
 
             message.success("Interview completed! Check your results.");
-
+            
             // Navigate to summary
             navigate("/interviewee/summary");
           } catch (scoringError) {
@@ -336,7 +332,7 @@ const IntervieweePage = ({ step }) => {
             };
 
             dispatch(completeInterview(fallbackResult));
-
+            
             // Navigate to summary even with fallback results
             navigate("/interviewee/summary");
 
@@ -352,33 +348,25 @@ const IntervieweePage = ({ step }) => {
         message.error("Failed to record answer. Please try again.");
       }
     },
-    [
-      dispatch,
-      questions,
-      answers,
-      profile,
-      resume,
-      currentQuestionIndex,
-      navigate,
-    ]
+    [dispatch, questions, answers, profile, resume, currentQuestionIndex, navigate]
   );
 
   // Handle back to dashboard - now using routing
   const handleBackToDashboard = useCallback(() => {
     console.log("IntervieweePage: Returning to dashboard via routing");
-
+    
     // Reset loading states to be safe
     setIsGeneratingQuestions(false);
     setIsScoringAnswers(false);
-
+    
     // Reset the interview state if going back from summary
-    if (step === "summary") {
+    if (step === 'summary') {
       dispatch(resetInterview());
     }
-
+    
     // Navigate to the dashboard
-    navigate("/interviewee/dashboard");
-
+    navigate('/interviewee/dashboard');
+    
     // Show a confirmation message
     message.success("Returning to dashboard");
   }, [dispatch, navigate, step]);
@@ -394,10 +382,10 @@ const IntervieweePage = ({ step }) => {
 
       // First clear any errors
       dispatch(clearError());
-
+      
       // Reset the interview state
       dispatch(resetInterview());
-
+      
       // Get the current resume state
       const hasResume = !!resume?.text;
 
@@ -413,43 +401,40 @@ const IntervieweePage = ({ step }) => {
         );
         dispatch(setCurrentStep(1));
       }
-
+      
       // Navigate to pre-interview step
-      navigate("/interviewee/pre-interview");
+      navigate('/interviewee/pre-interview');
     } catch (err) {
       console.error("Error starting new interview:", err);
       message.error(
         "There was a problem starting the interview. Please try again."
       );
-      navigate("/interviewee/dashboard");
+      navigate('/interviewee/dashboard');
     }
   }, [dispatch, resume, currentStep, inProgress, navigate]);
-
+  
   const handleViewResults = useCallback(() => {
     console.log("IntervieweePage: Viewing results from dashboard");
     // Navigate to the summary page
-    navigate("/interviewee/summary");
+    navigate('/interviewee/summary');
   }, [navigate]);
-
+  
   const handleRetakeInterview = useCallback(() => {
     // Reset the interview but keep profile and resume
     dispatch(resetInterview());
     dispatch(setCurrentStep("pre-interview"));
-
+    
     // Navigate to interview flow
-    navigate("/interviewee/pre-interview");
+    navigate('/interviewee/pre-interview');
   }, [dispatch, navigate]);
 
   // Show global loading for critical operations
   const globalLoading = isGeneratingQuestions || isScoringAnswers;
-
+  
   // Render based on current route
   const renderContent = () => {
-    // We're now using props, so step should always be defined by the parent component
-    console.log("IntervieweePage: Rendering content for step:", step);
-
-    switch (step || "dashboard") {
-      case "dashboard":
+    switch (step) {
+      case 'dashboard':
         return (
           <ErrorBoundary onReset={() => window.location.reload()}>
             <div className="p-8">
@@ -458,15 +443,15 @@ const IntervieweePage = ({ step }) => {
                   pastInterviews?.length || 0
                 }-${Date.now()}`}
                 onStartNewInterview={handleStartNewInterview}
-                onViewResults={handleViewResults}
+                onViewResults={() => navigate('/interviewee/summary')}
               />
             </div>
           </ErrorBoundary>
         );
-
-      case "pre-interview":
-      case "interview":
-      case "summary":
+        
+      case 'pre-interview':
+      case 'interview':
+      case 'summary':
         return (
           <ErrorBoundary onReset={handleBackToDashboard}>
             <div className="min-h-[600px]">
@@ -524,7 +509,7 @@ const IntervieweePage = ({ step }) => {
                   key={`interview-flow-${currentStep}-${!!resume?.text}-${Date.now()}`}
                   onStart={handleStartInterview}
                   onAnswer={handleAnswerSubmit}
-                  onComplete={handleBackToDashboard}
+                  onComplete={() => navigate('/interviewee/dashboard')}
                   onResumeParsed={handleResumeParsed}
                   onBackToDashboard={handleBackToDashboard}
                   onRetakeInterview={handleRetakeInterview}
@@ -536,23 +521,11 @@ const IntervieweePage = ({ step }) => {
             </div>
           </ErrorBoundary>
         );
-
+        
       default:
-        // For any unhandled step, fallback to dashboard
-        console.log("IntervieweePage: Unhandled step type:", step);
-        return (
-          <ErrorBoundary onReset={() => window.location.reload()}>
-            <div className="p-8">
-              <IntervieweeDashboard
-                key={`dashboard-${!!resume?.text}-${!!profile?.name}-${
-                  pastInterviews?.length || 0
-                }-${Date.now()}`}
-                onStartNewInterview={handleStartNewInterview}
-                onViewResults={handleViewResults}
-              />
-            </div>
-          </ErrorBoundary>
-        );
+        // If no matching route, redirect to dashboard
+        navigate('/interviewee/dashboard');
+        return null;
     }
   };
 
