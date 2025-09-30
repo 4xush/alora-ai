@@ -1,164 +1,176 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { interviewSyncService } from './interviewSyncService.js';
 
 const interviewerSlice = createSlice({
   name: 'interviewer',
   initialState: {
-    candidates: [], // Now stores candidate profiles and their attempts
+    candidates: [], // Simplified structure - one candidate can have multiple attempts
     search: '',
     sortKey: 'name',
     sortOrder: 'ascend',
   },
   reducers: {
-    upsertCandidate(state, action) {
-      const candidateData = action.payload;
-      const email = candidateData.email;
+    // SIMPLIFIED: Single action to sync interview state
+    syncInterviewState(state, action) {
+      const { interviewId, profile, status, additionalData = {} } = action.payload;
+      
+      console.log('🔄 Syncing interview state:', { interviewId, status });
 
-      // Use the provided ID if it exists (which should be the interview ID)
-      // Only generate a new ID if one wasn't provided
-      let attemptId;
-      if (candidateData.id) {
-        attemptId = candidateData.id;
-      } else {
-        // Create a more robust and unique attemptId as fallback
-        const timestamp = Date.now();
-        const randomPart = Math.random().toString(36).substr(2, 9);
-        const sanitizedEmail = email ? email.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().substring(0, 15) : 'unknown';
-        attemptId = `interview_${sanitizedEmail}_${timestamp}_${randomPart}`;
+      if (!interviewId || !profile?.email) {
+        console.warn('❌ Invalid sync data - missing interviewId or profile email');
+        return;
       }
 
-      // If we have an email, find candidate by email, otherwise use id
-      const existingCandidateIndex = email
-        ? state.candidates.findIndex(c => c.email === email)
-        : state.candidates.findIndex(c => c.id === candidateData.id);
-
+      // Find existing candidate by email
+      const existingCandidateIndex = state.candidates.findIndex(c => c.email === profile.email);
+      
       if (existingCandidateIndex >= 0) {
-        // Candidate exists, add/update attempt
+        // Update existing candidate
         const candidate = state.candidates[existingCandidateIndex];
-
-        // Initialize attempts array if it doesn't exist
+        
+        // Initialize attempts if needed
         if (!candidate.attempts) {
           candidate.attempts = [];
         }
 
-        // Check if this attempt already exists
-        const attemptIndex = candidate.attempts.findIndex(a => a.id === attemptId);
-
+        // Find existing attempt by interview ID
+        const attemptIndex = candidate.attempts.findIndex(a => a.id === interviewId);
+        
         if (attemptIndex >= 0) {
           // Update existing attempt
           candidate.attempts[attemptIndex] = {
             ...candidate.attempts[attemptIndex],
-            ...candidateData,
+            ...additionalData,
+            id: interviewId,
+            status: interviewSyncService.normalizeStatus(status),
             updatedAt: new Date().toISOString(),
           };
+          console.log('✅ Updated existing attempt for candidate:', profile.email);
         } else {
           // Add new attempt
           candidate.attempts.push({
-            ...candidateData,
-            id: attemptId,
+            id: interviewId,
             attemptNumber: candidate.attempts.length + 1,
+            status: interviewSyncService.normalizeStatus(status),
             createdAt: new Date().toISOString(),
+            ...additionalData,
           });
+          console.log('✅ Added new attempt for existing candidate:', profile.email);
         }
 
-        // Use the existing attempts array without creating duplicates
-        let attempts = [...candidate.attempts];
-
-        // Update or add the current attempt, but don't add it twice
-        if (attemptIndex >= 0) {
-          // Update existing attempt
-          attempts[attemptIndex] = {
-            ...attempts[attemptIndex],
-            ...candidateData,
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        // The else case is not needed here - we already added to candidate.attempts above
-
-        // Get the most recent completed attempt with a score
-        const completedAttempts = attempts
+        // Update candidate summary with latest completed attempt
+        const completedAttempts = candidate.attempts
           .filter(a => a.status === "Completed" && a.score != null)
-          .sort((a, b) => {
-            const dateA = a.completedAt ? new Date(a.completedAt) : new Date(0);
-            const dateB = b.completedAt ? new Date(b.completedAt) : new Date(0);
-            return dateB - dateA; // Most recent first
-          });
+          .sort((a, b) => new Date(b.completedAt || b.updatedAt || 0) - new Date(a.completedAt || a.updatedAt || 0));
 
-        const latestAttempt = completedAttempts.length > 0 ? completedAttempts[0] : null;
+        const latestCompleted = completedAttempts[0];
+        if (latestCompleted) {
+          candidate.latestScore = latestCompleted.score;
+          candidate.latestStatus = latestCompleted.status;
+        } else {
+          // If no completed attempts, use the latest attempt status
+          const latestAttempt = candidate.attempts
+            .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))[0];
+          candidate.latestStatus = latestAttempt?.status || 'No attempts';
+        }
 
-        // Update candidate profile info with truly latest score
-        state.candidates[existingCandidateIndex] = {
-          ...candidate,
-          name: candidateData.name || candidate.name,
-          email: email || candidate.email,
-          phone: candidateData.phone || candidate.phone,
-          attempts: attempts,
-          latestScore: latestAttempt ? latestAttempt.score : candidate.latestScore,
-          latestStatus: latestAttempt ? latestAttempt.status : (candidateData.status || candidate.latestStatus),
-        };
       } else {
-        // New candidate, create entry with first attempt
-        const firstAttempt = {
-          ...candidateData,
-          id: attemptId,
+        // Create new candidate
+        const newAttempt = {
+          id: interviewId,
           attemptNumber: 1,
+          status: interviewSyncService.normalizeStatus(status),
           createdAt: new Date().toISOString(),
+          ...additionalData,
         };
 
         state.candidates.push({
-          id: email || candidateData.id,
-          name: candidateData.name,
-          email: email,
-          phone: candidateData.phone,
-          latestScore: candidateData.score,
-          latestStatus: candidateData.status,
-          attempts: [firstAttempt]
+          id: profile.email, // Use email as unique candidate ID
+          name: profile.name,
+          email: profile.email,
+          phone: profile.phone,
+          latestScore: additionalData.score || null,
+          latestStatus: interviewSyncService.normalizeStatus(status),
+          attempts: [newAttempt]
         });
+        console.log('✅ Created new candidate:', profile.email);
       }
     },
-    setSearch(state, action) {
-      state.search = action.payload;
-    },
-    setSort(state, action) {
-      state.sortKey = action.payload.key;
-      state.sortOrder = action.payload.order;
-    },
-    removeInProgressAttempt(state, action) {
+
+    // Clean up abandoned attempts (for when user abandons interview)
+    removeAbandonedAttempt(state, action) {
       const { interviewId } = action.payload;
+      
+      console.log('🧹 Removing abandoned attempt:', interviewId);
+
       if (!interviewId) return;
 
       state.candidates.forEach(candidate => {
         if (candidate.attempts) {
           const initialCount = candidate.attempts.length;
-          candidate.attempts = candidate.attempts.filter(attempt => {
-            // Keep the attempt if it's NOT the one we want to remove
-            return !(attempt.id === interviewId && attempt.status === 'in_progress');
-          });
+          
+          // Remove only in-progress attempts with matching ID
+          candidate.attempts = candidate.attempts.filter(attempt => 
+            !(attempt.id === interviewId && attempt.status === 'In Progress')
+          );
 
-          // If an attempt was removed, we might need to update the candidate's summary fields
+          // If an attempt was removed, recalculate candidate summary
           if (candidate.attempts.length < initialCount) {
-            // Recalculate latest score and status from the remaining completed attempts
+            console.log('✅ Removed abandoned attempt for:', candidate.email);
+            
+            // Recalculate latest score and status
             const completedAttempts = candidate.attempts
               .filter(a => a.status === "Completed" && a.score != null)
-              .sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
+              .sort((a, b) => new Date(b.completedAt || b.updatedAt || 0) - new Date(a.completedAt || a.updatedAt || 0));
 
-            const latestCompleted = completedAttempts[0] || null;
-            candidate.latestScore = latestCompleted ? latestCompleted.score : null;
-
-            // Recalculate latest status from all remaining attempts
-            const allAttempts = candidate.attempts
-              .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-
-            const latestAttempt = allAttempts[0] || null;
-            candidate.latestStatus = latestAttempt ? latestAttempt.status : 'No attempts';
+            const latestCompleted = completedAttempts[0];
+            if (latestCompleted) {
+              candidate.latestScore = latestCompleted.score;
+              candidate.latestStatus = latestCompleted.status;
+            } else {
+              // No completed attempts, find latest non-completed
+              const allAttempts = candidate.attempts
+                .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+              const latestAttempt = allAttempts[0];
+              candidate.latestScore = null;
+              candidate.latestStatus = latestAttempt ? latestAttempt.status : 'No attempts';
+            }
           }
         }
       });
 
-      // Optional: Clean up candidates with no attempts left
+      // Remove candidates with no attempts
       state.candidates = state.candidates.filter(c => c.attempts && c.attempts.length > 0);
+      
+      // Also clean up through sync service
+      interviewSyncService.cleanupInterviewProgress(interviewId);
+    },
+
+    // UI state management
+    setSearch(state, action) {
+      state.search = action.payload;
+    },
+
+    setSort(state, action) {
+      state.sortKey = action.payload.key;
+      state.sortOrder = action.payload.order;
+    },
+
+    // Clean up all interview data
+    clearAllCandidates(state) {
+      console.log('🗑️ Clearing all candidate data');
+      state.candidates = [];
+      interviewSyncService.cleanupExistingSessions();
     }
   },
 });
 
-export const { upsertCandidate, setSearch, setSort, removeInProgressAttempt } = interviewerSlice.actions;
+export const { 
+  syncInterviewState, 
+  removeAbandonedAttempt, 
+  setSearch, 
+  setSort, 
+  clearAllCandidates 
+} = interviewerSlice.actions;
+
 export default interviewerSlice.reducer;

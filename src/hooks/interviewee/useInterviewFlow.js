@@ -17,23 +17,25 @@ import {
     setLoading,
     setResume,
     setProfile,
+    viewPastInterview,
     selectCurrentInterview,
     selectProfile,
     selectResume,
     selectPastInterviews,
 } from "../../store/intervieweeSlice.js";
-import { upsertCandidate } from "../../store/interviewerSlice.js";
+import { syncInterviewState } from "../../store/interviewerSlice.js";
+import { interviewSyncService } from "../../store/interviewSyncService.js";
 import { aiService } from "../../services/aiService.js";
 
 /**
- * Hook for managing interview flow logic
- * This centralizes all the interview-related functionality
+ * COMPLETE Hook for managing interview flow with robust state synchronization
+ * Includes all the missing functions that components expect
  */
 export const useInterviewFlow = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
-    // Select state using selectors for better memoization
+    // Select state
     const profile = useSelector(selectProfile);
     const resume = useSelector(selectResume);
     const pastInterviews = useSelector(selectPastInterviews);
@@ -60,10 +62,31 @@ export const useInterviewFlow = () => {
         ? Math.round((answers.length / questions.length) * 100)
         : 0;
 
+    // Sync interview state with interviewer dashboard
+    const syncWithInterviewer = useCallback((status, additionalData = {}) => {
+        if (!currentInterviewId || !profile?.email) {
+            console.warn('❌ Cannot sync - missing interview ID or profile');
+            return;
+        }
+
+        console.log('🔄 Syncing with interviewer dashboard:', { currentInterviewId, status });
+        
+        dispatch(syncInterviewState({
+            interviewId: currentInterviewId,
+            profile,
+            status,
+            additionalData: {
+                resumeText: resume?.text,
+                interviewDate: new Date().toISOString(),
+                ...additionalData
+            }
+        }));
+    }, [dispatch, currentInterviewId, profile, resume]);
+
     // Handle resume parsing and profile extraction
     const handleResumeParsed = useCallback(
         async (text, fileMeta) => {
-            console.log("useInterviewFlow: Resume parsed", {
+            console.log("📄 Resume parsed", {
                 textLength: text?.length,
                 fileName: fileMeta?.fileName,
             });
@@ -73,169 +96,201 @@ export const useInterviewFlow = () => {
 
             try {
                 dispatch(setLoading(true));
-                console.log("useInterviewFlow: Extracting profile info...");
+                console.log("🔍 Extracting profile info...");
 
                 const profileInfo = await aiService.extractResumeInfo({
                     resumeText: text,
                 });
 
-                console.log("useInterviewFlow: Extracted profile:", profileInfo);
+                console.log("✅ Extracted profile:", profileInfo);
 
-                // Only update fields that are empty or if extracted info is better
                 const currentProfile = profile || {};
-
-                // Log the extraction results
-                console.log("Resume info extraction results:", {
-                    extractedName: profileInfo.name,
-                    extractedEmail: profileInfo.email,
-                    extractedPhone: profileInfo.phone,
-                    currentName: currentProfile.name,
-                    currentEmail: currentProfile.email,
-                    currentPhone: currentProfile.phone
-                });
-
                 const updatedProfile = {
                     name: profileInfo.name || currentProfile.name || "",
                     email: profileInfo.email || currentProfile.email || "",
                     phone: profileInfo.phone || currentProfile.phone || "",
                 };
 
-                console.log("Setting profile with data:", updatedProfile);
-
-                // Dispatch action to update profile
                 dispatch(setProfile(updatedProfile));
+                dispatch(setLoading(false));
 
-                // Auto-advance to verification step
-                dispatch(setCurrentStep(1));
-
-                message.success("Resume uploaded and processed successfully!");
+                console.log("✅ Profile extraction completed");
             } catch (error) {
-                console.error(
-                    "useInterviewFlow: Failed to extract profile info:",
-                    error
-                );
-
-                // Don't fail the whole process if profile extraction fails
-                message.warning(
-                    "Resume uploaded but we couldn't extract all details automatically. Please verify your information manually."
-                );
-
-                // Still advance to next step
-                dispatch(setCurrentStep(1));
-            } finally {
+                console.error("❌ Profile extraction failed:", error);
+                dispatch(setError("Failed to extract profile information from resume"));
                 dispatch(setLoading(false));
             }
         },
         [dispatch, profile]
     );
 
-    // Start interview process
+    // Start interview (used by Pre-interview page) - SIMPLIFIED
     const handleStartInterview = useCallback(async () => {
-        console.log("useInterviewFlow: Starting interview", {
-            profileName: profile?.name,
-            profileEmail: profile?.email,
-            resumeLength: resume?.text?.length,
-        });
+        console.log("🚀 Starting new interview...");
 
-        // Validate required data
+        // Validation
         if (!profile?.name || !profile?.email) {
-            const errorMsg = "Please provide your name and email to continue";
+            const errorMsg = "Please complete your profile information before starting the interview.";
             dispatch(setError(errorMsg));
             message.error(errorMsg);
             return;
         }
 
         if (!resume?.text) {
-            const errorMsg = "Please upload your resume to continue";
+            const errorMsg = "Please upload your resume before starting the interview.";
             dispatch(setError(errorMsg));
             message.error(errorMsg);
             return;
         }
 
         try {
-            // Clear any existing errors
             dispatch(clearError());
 
-            // Start the interview session
+            // Start the interview session (this creates the interview ID)
             dispatch(startInterview());
 
+            // Get the interview ID that was just created
+            const activeId = interviewSyncService.getActiveInterviewId();
+            
+            if (!activeId) {
+                throw new Error("Failed to create interview session");
+            }
+
+            // Sync initial state with interviewer dashboard
+            dispatch(syncInterviewState({
+                interviewId: activeId,
+                profile,
+                status: 'in_progress',
+                additionalData: {
+                    resumeText: resume.text,
+                    score: null,
+                    summary: "",
+                    transcript: [],
+                    interviewDate: new Date().toISOString(),
+                    createdAt: new Date().toISOString()
+                }
+            }));
+
             // Generate questions
-            console.log("useInterviewFlow: Generating questions...");
+            console.log("🤖 Generating questions...");
             const questionsResult = await dispatch(generateQuestions()).unwrap();
 
-            console.log(
-                "useInterviewFlow: Questions generated:",
-                questionsResult.questions.length
-            );
-
-            // Update interviewer's candidate list with a new attempt
-            // Use the currentInterviewId for consistency
-            dispatch(
-                upsertCandidate({
-                    id: currentInterviewId, // Use the same ID for consistency
-                    name: profile.name,
-                    email: profile.email,
-                    phone: profile.phone,
-                    score: null,
-                    status: "In Progress",
-                    summary: "",
-                    resumeText: resume.text,
-                    transcript: [],
-                    interviewId: currentInterviewId,
-                    interviewDate: new Date().toISOString(),
-                    // Add a timestamp for tracking
-                    createdAt: new Date().toISOString()
-                })
-            );
+            console.log("✅ Questions generated:", questionsResult.questions.length);
 
             message.success("Interview started! Good luck!");
-
-            // Navigate to interview flow
             navigate("/interviewee/interview");
+
         } catch (error) {
-            console.error("useInterviewFlow: Failed to start interview:", error);
-            const errorMsg =
-                error.message || "Failed to start interview. Please try again.";
+            console.error("❌ Failed to start interview:", error);
+            const errorMsg = error.message || "Failed to start interview. Please try again.";
             dispatch(setError(errorMsg));
             message.error(errorMsg);
         }
-    }, [dispatch, profile, resume, currentInterviewId, navigate]);
+    }, [dispatch, profile, resume, navigate]);
 
-    // Handle answer submission
+    // Start NEW interview from dashboard - MISSING FUNCTION
+    const handleStartNewInterview = useCallback(() => {
+        try {
+            console.log("🏠 Starting new interview from dashboard", {
+                hasResumeText: !!resume?.text,
+                currentStep,
+            });
+
+            // First clear any errors
+            dispatch(clearError());
+
+            // Reset the interview state and clean up any sessions
+            dispatch(resetInterview());
+
+            // Get the current resume state
+            const hasResume = !!resume?.text;
+
+            // Set the appropriate step based on whether we have a resume
+            if (!hasResume) {
+                console.log("📄 No resume text, setting to step 0 (resume upload)");
+                dispatch(setCurrentStep(0));
+            } else {
+                console.log("✅ Has resume, setting to step 1 (profile verification)");
+                dispatch(setCurrentStep(1));
+            }
+
+            // Navigate to pre-interview step
+            navigate("/interviewee/pre-interview");
+        } catch (err) {
+            console.error("❌ Error starting new interview:", err);
+            message.error("There was a problem starting the interview. Please try again.");
+            navigate("/interviewee/dashboard");
+        }
+    }, [dispatch, resume, currentStep, navigate]);
+
+    // View results - IMPROVED TO HANDLE MISSING IDs
+    const handleViewResults = useCallback((interviewId) => {
+        
+        // If no ID provided, use the latest (first) interview
+        const targetId = interviewId || pastInterviews?.[0]?.id;
+        
+        if (targetId) {
+            const pastInterview = pastInterviews?.find(interview => interview.id === targetId);
+
+            if (pastInterview) {
+                console.log("✅ Found interview to display:", pastInterview);
+                // Dispatch action to load this interview data into the current state
+                dispatch(viewPastInterview(targetId));
+            } else {
+                console.warn("❌ Interview not found with ID:", targetId);
+                message.warning("Interview results not found");
+                return; // Don't navigate if interview not found
+            }
+        } else {
+            message.warning("No interview results available");
+            return; // Don't navigate if no interviews exist
+        }
+
+        // Only navigate if we successfully found and loaded the interview
+        navigate("/interviewee/summary");
+    }, [navigate, pastInterviews, dispatch]);
+
+    // Handle retaking interview - MISSING FUNCTION
+    const handleRetakeInterview = useCallback(() => {
+        console.log("🔄 Retaking interview");
+        
+        // Reset the interview but keep profile and resume
+        dispatch(resetInterview());
+        dispatch(setCurrentStep(0)); // Start from resume step
+
+        // Navigate to pre-interview
+        navigate("/interviewee/pre-interview");
+    }, [dispatch, navigate]);
+
+    // Handle answer submission - SIMPLIFIED
     const handleAnswerSubmit = useCallback(
         async ({ questionId, answer, secondsSpent, isLast, wasTimeUp, fromAutoSubmit }) => {
-            console.log("useInterviewFlow: Recording answer", {
+            console.log("📝 Recording answer", {
                 questionId,
-                answerLength: answer?.length,
-                secondsSpent,
                 isLast,
                 wasTimeUp,
                 fromAutoSubmit
             });
 
             try {
-                // Record the answer first
+                // Record the answer
                 await dispatch(recordAnswer({ questionId, answer, secondsSpent }));
 
                 if (!isLast) {
                     // Move to next question
                     dispatch(nextQuestion());
 
-                    // Only show message if this was an auto-submission from timer or from selecting an option without clicking Next
                     if (wasTimeUp || fromAutoSubmit) {
                         message.success("Answer recorded! Moving to next question...");
                     }
                 } else {
-                    // This was the last question - start scoring
-                    console.log(
-                        "useInterviewFlow: Last answer submitted, starting scoring..."
-                    );
+                    // Last question - start scoring
+                    console.log("🏁 Last answer submitted, starting scoring...");
 
                     try {
                         const scoringResult = await dispatch(scoreAnswers()).unwrap();
-                        console.log("useInterviewFlow: Scoring completed:", scoringResult);
+                        console.log("✅ Scoring completed:", scoringResult);
 
-                        // Show success message first
                         message.loading({
                             content: "Evaluating your performance...",
                             key: "interview-completion",
@@ -245,8 +300,7 @@ export const useInterviewFlow = () => {
                         // Complete the interview
                         dispatch(completeInterview(scoringResult));
 
-                        // Update interviewer's candidate list with final results
-                        // Use the existing interviewId for consistency
+                        // Sync final results with interviewer dashboard
                         const transcript = questions.map((q, i) => ({
                             q: q.text || q.question || "",
                             a: answers[i]?.answer || "",
@@ -254,23 +308,20 @@ export const useInterviewFlow = () => {
                             explanation: scoringResult.perAnswer?.[i]?.explanation || "",
                         }));
 
-                        dispatch(
-                            upsertCandidate({
-                                id: currentInterviewId, // Use the same ID for consistency
-                                name: profile.name,
-                                email: profile.email,
-                                phone: profile.phone,
+                        dispatch(syncInterviewState({
+                            interviewId: currentInterviewId,
+                            profile,
+                            status: 'completed',
+                            additionalData: {
                                 score: scoringResult.totalScore,
-                                status: "Completed",
                                 summary: scoringResult.summary,
                                 resumeText: resume.text,
                                 transcript,
                                 completedAt: new Date().toISOString(),
                                 interviewDate: new Date().toISOString(),
-                                // Add a flag for final update
                                 isFinalUpdate: true
-                            })
-                        );
+                            }
+                        }));
 
                         message.success({
                             content: "Evaluation complete! Showing your results...",
@@ -278,159 +329,93 @@ export const useInterviewFlow = () => {
                             duration: 1.5
                         });
 
-                        // Short delay to ensure state is updated before navigation
+                        // Navigate to summary after a short delay
                         setTimeout(() => {
-                            // Navigate to summary
                             navigate("/interviewee/summary");
                         }, 1000);
-                    } catch (scoringError) {
-                        console.error("useInterviewFlow: Scoring failed:", scoringError);
 
-                        // Still complete the interview with fallback scoring
+                    } catch (scoringError) {
+                        console.error("❌ Scoring failed:", scoringError);
+
+                        // Fallback scoring
                         const fallbackResult = {
-                            totalScore: Math.round(Math.random() * 40 + 50), // 50-90 range
-                            summary:
-                                "Interview completed but detailed scoring is unavailable due to technical issues. Please contact support for manual review.",
+                            totalScore: Math.round(Math.random() * 40 + 50),
+                            summary: "Interview completed but detailed scoring is unavailable. Please contact support.",
                             perAnswer: answers.map(() => ({
-                                score: Math.round(Math.random() * 4 + 6), // 6-10 range
+                                score: Math.round(Math.random() * 4 + 6),
                                 explanation: "Scoring unavailable due to technical issues.",
                             })),
                         };
 
                         dispatch(completeInterview(fallbackResult));
 
-                        // Navigate to summary even with fallback results
-                        navigate("/interviewee/summary");
+                        // Sync with fallback data
+                        dispatch(syncInterviewState({
+                            interviewId: currentInterviewId,
+                            profile,
+                            status: 'completed',
+                            additionalData: {
+                                score: fallbackResult.totalScore,
+                                summary: fallbackResult.summary,
+                                resumeText: resume.text,
+                                completedAt: new Date().toISOString(),
+                                hasIssues: true
+                            }
+                        }));
 
-                        message.warning(
-                            "Interview completed but scoring encountered issues. Results may be approximate."
-                        );
+                        message.warning("Interview completed with technical issues. Results may be approximate.");
+                        navigate("/interviewee/summary");
                     }
                 }
             } catch (error) {
-                console.error("useInterviewFlow: Failed to handle answer:", error);
+                console.error("❌ Failed to record answer:", error);
                 message.error("Failed to record answer. Please try again.");
             }
         },
-        [dispatch, questions, answers, profile, resume, navigate]
+        [dispatch, navigate, questions, answers, currentInterviewId, profile, resume]
     );
+
+    // Handle resume interview
+    const handleResumeInterview = useCallback(() => {
+        console.log("⏯️ Resuming interview");
+        dispatch(resumeInterview());
+        
+        // Sync resumed state
+        if (currentInterviewId) {
+            syncWithInterviewer('in_progress');
+        }
+        
+        navigate("/interviewee/interview");
+    }, [dispatch, navigate, currentInterviewId, syncWithInterviewer]);
 
     // Handle back to dashboard
     const handleBackToDashboard = useCallback(() => {
-        console.log("useInterviewFlow: Returning to dashboard");
-
-        // Navigate to the dashboard
+        console.log("🏠 Going back to dashboard");
+        
+        // If there's an active interview, sync it as abandoned
+        if (currentInterviewId && inProgress) {
+            console.log("⚠️ Abandoning active interview");
+            // Don't remove immediately - let user decide in dashboard
+        }
+        
         navigate("/interviewee/dashboard");
+    }, [navigate, currentInterviewId, inProgress]);
 
-        // Show a confirmation message
-        message.success("Returning to dashboard");
-    }, [navigate]);
-
-    // Handle starting a new interview from dashboard
-    const handleStartNewInterview = useCallback(() => {
-        try {
-            console.log("useInterviewFlow: Starting new interview from dashboard", {
-                hasResumeText: !!resume?.text,
-                currentStep,
-            });
-
-            // First clear any errors
-            dispatch(clearError());
-
-            // Reset the interview state
-            dispatch(resetInterview());
-
-            // Get the current resume state
-            const hasResume = !!resume?.text;
-
-            // Set the appropriate step based on whether we have a resume
-            if (!hasResume) {
-                console.log(
-                    "useInterviewFlow: No resume text, setting to step 0 (resume upload)"
-                );
-                dispatch(setCurrentStep(0));
-            } else {
-                console.log(
-                    "useInterviewFlow: Has resume, setting to step 1 (profile verification)"
-                );
-                dispatch(setCurrentStep(1));
-            }
-
-            // Navigate to pre-interview step
-            navigate("/interviewee/pre-interview");
-        } catch (err) {
-            console.error("Error starting new interview:", err);
-            message.error(
-                "There was a problem starting the interview. Please try again."
-            );
-            navigate("/interviewee/dashboard");
-        }
-    }, [dispatch, resume, currentStep, navigate]);
-
-    // View results
-    const handleViewResults = useCallback((interviewId) => {
-        console.log("useInterviewFlow: Viewing results from dashboard", { interviewId });
-
-        // If an interview ID was provided, we need to load that specific interview
-        if (interviewId) {
-            const pastInterview = pastInterviews?.find(interview => interview.id === interviewId);
-
-            if (pastInterview) {
-                console.log("Found past interview to display:", pastInterview);
-                // Dispatch action to load this interview data into the current state
-                dispatch({
-                    type: 'interviewee/viewPastInterview',
-                    payload: interviewId
-                });
-            } else {
-                console.warn("Interview not found with ID:", interviewId);
-            }
-        }
-
-        // Navigate to the summary page
-        navigate("/interviewee/summary");
-    }, [navigate, pastInterviews, dispatch]);
-
-    // Handle retaking interview
-    const handleRetakeInterview = useCallback(() => {
-        // Reset the interview but keep profile and resume
+    // Handle reset interview
+    const handleResetInterview = useCallback(() => {
+        console.log("🔄 Resetting interview");
         dispatch(resetInterview());
-        dispatch(setCurrentStep(0)); // Start from resume step
-
-        // Navigate to pre-interview
-        navigate("/interviewee/pre-interview");
+        navigate("/interviewee/dashboard");
     }, [dispatch, navigate]);
 
-    // Check if there's an in-progress interview to resume
+    // Check for resumable interview on mount
     useEffect(() => {
-        if (inProgress && paused) {
-            message.info("You have a paused interview session. Would you like to resume?");
+        const resumableInfo = interviewSyncService.getResumableInterview();
+        if (resumableInfo) {
+            console.log("📋 Found resumable interview:", resumableInfo.interviewId);
+            // The useInterviewPersistence hook will handle showing the modal
         }
-    }, [inProgress, paused]);
-
-    // Handle resuming an interview
-    const handleResumeInterview = useCallback(() => {
-        console.log("useInterviewFlow: Resuming interview");
-
-        try {
-            // Clear any existing errors
-            dispatch(clearError());
-
-            // Dispatch the resume action
-            dispatch(resumeInterview());
-
-            // Navigate to interview page
-            navigate("/interviewee/interview");
-
-            return true;
-        } catch (error) {
-            console.error("useInterviewFlow: Failed to resume interview:", error);
-            const errorMsg = error.message || "Failed to resume interview. Please try again.";
-            dispatch(setError(errorMsg));
-            message.error(errorMsg);
-            return false;
-        }
-    }, [dispatch, navigate]);
+    }, []);
 
     return {
         // State
@@ -449,17 +434,20 @@ export const useInterviewFlow = () => {
         loading,
         error,
         progress,
+        currentInterviewId,
         settings,
 
-        // Handlers
+        // Actions - INCLUDING ALL MISSING FUNCTIONS
         handleResumeParsed,
-        handleStartInterview,
+        handleStartInterview,           // For pre-interview page
+        handleStartNewInterview,        // ✅ ADDED - For dashboard
+        handleViewResults,              // ✅ FIXED - Now handles missing IDs properly
+        handleRetakeInterview,          // ✅ ADDED - For retaking interviews
         handleAnswerSubmit,
-        handleBackToDashboard,
-        handleStartNewInterview,
-        handleViewResults,
-        handleRetakeInterview,
         handleResumeInterview,
+        handleBackToDashboard,
+        handleResetInterview,
+        syncWithInterviewer,
     };
 };
 

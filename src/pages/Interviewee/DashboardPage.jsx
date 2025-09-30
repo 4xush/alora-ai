@@ -31,7 +31,7 @@ import {
   resumeInterview,
   resetInterview,
 } from "../../store/intervieweeSlice";
-import { removeInProgressAttempt } from "../../store/interviewerSlice";
+import { removeAbandonedAttempt } from "../../store/interviewerSlice";
 import { STORAGE_KEYS } from "../../utils/storageUtils";
 import ResumeInterviewModal from "../../components/ResumeInterviewModal/ResumeInterviewModal";
 
@@ -125,7 +125,7 @@ const DashboardPage = () => {
       dispatch(resetInterview());
       // Notify interviewer slice to remove this in-progress attempt
       dispatch(
-        removeInProgressAttempt({
+        removeAbandonedAttempt({
           interviewId: resumableInterviewInfo.interviewId,
         })
       );
@@ -310,7 +310,7 @@ const DashboardPage = () => {
                   {hasCompletedInterviews && (
                     <Button
                       type="link"
-                      onClick={handleViewResults}
+                      onClick={() => handleViewResults()}
                       icon={<EyeOutlined />}
                     >
                       View Details
@@ -408,7 +408,7 @@ const DashboardPage = () => {
                         </Button>
                         <Button
                           size="large"
-                          onClick={handleViewResults}
+                          onClick={() => handleViewResults()}
                           icon={<TrendingUp className="w-4 h-4" />}
                         >
                           View Detailed Feedback

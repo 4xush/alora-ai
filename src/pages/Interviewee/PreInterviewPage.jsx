@@ -25,7 +25,7 @@ import {
   resumeInterview,
   resetInterview,
 } from "../../store/intervieweeSlice";
-import { removeInProgressAttempt } from "../../store/interviewerSlice";
+import { removeAbandonedAttempt } from "../../store/interviewerSlice";
 import { STORAGE_KEYS } from "../../utils/storageUtils";
 
 const { Step } = Steps;
@@ -206,7 +206,7 @@ const PreInterviewPage = () => {
       dispatch(resetInterview());
       // Notify interviewer slice to remove this in-progress attempt
       dispatch(
-        removeInProgressAttempt({
+        removeAbandonedAttempt({
           interviewId: resumableInterviewInfo.interviewId,
         })
       );

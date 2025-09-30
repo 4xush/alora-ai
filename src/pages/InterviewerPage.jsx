@@ -20,13 +20,15 @@ import {
   Empty,
   Alert,
   Spin,
+  Divider,
+  Timeline,
+  Rate,
+  List,
 } from "antd";
 import {
   SearchOutlined,
   UserOutlined,
   EyeOutlined,
-  FilterOutlined,
-  SortAscendingOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
   FileTextOutlined,
@@ -34,242 +36,91 @@ import {
   TeamOutlined,
   TrophyOutlined,
   InfoCircleOutlined,
+  PhoneOutlined,
+  MailOutlined,
+  BookOutlined,
+  QuestionCircleOutlined,
+  BarChartOutlined,
+  PlayCircleOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  MinusOutlined,
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
-import { setSearch, setSort } from "../store/interviewerSlice.js"; // Adjust path if necessary
+import { setSearch, setSort } from "../store/interviewerSlice.js";
 
 const { Title, Text, Paragraph } = Typography;
 
-// Helper function to get a consistent date from a record
-const getRecordDate = (record) => {
-  const date = record.interviewDate || record.completedAt || record.createdAt;
-  return date ? new Date(date) : null;
-};
-
+/**
+ * Enhanced Interviewer Dashboard with Production-Grade Detail Drawer
+ */
 const InterviewerPage = () => {
   const dispatch = useDispatch();
-  const { candidates, search, sortKey, sortOrder } = useSelector(
-    (s) => s.interviewer
-  );
-  const [selected, setSelected] = useState(null);
-  const [stats, setStats] = useState({
-    total: 0,
-    completed: 0,
-    inProgress: 0,
-    avgScore: 0,
-  });
+  const { candidates, search, sortKey, sortOrder } = useSelector((s) => s.interviewer);
+  
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [drawerVisible, setDrawerVisible] = useState(false);
   const [activeTab, setActiveTab] = useState("1");
   const [loading, setLoading] = useState(true);
 
-  // Memoize dashboard stats for performance
-  const dashboardStats = useMemo(() => {
-    if (!candidates || candidates.length === 0) {
-      return { total: 0, completed: 0, inProgress: 0, avgScore: 0 };
-    }
-
-    let completedCount = 0;
-    let inProgressCount = 0;
-    const scores = [];
-
-    candidates.forEach((c) => {
-      const attempts = c.attempts && c.attempts.length > 0 ? c.attempts : [c];
-      attempts.forEach((attempt) => {
-        if (attempt.status === "Completed") {
-          completedCount++;
-          if (attempt.score != null) {
-            scores.push(attempt.score);
-          }
-        } else if (attempt.status === "In Progress") {
-          inProgressCount++;
-        }
-      });
-    });
-
-    const avgScore =
-      scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-
-    return {
-      total: candidates.length, // Total unique candidates
-      completed: completedCount,
-      inProgress: inProgressCount,
-      avgScore: Math.round(avgScore),
-    };
-  }, [candidates]);
-
-  useEffect(() => {
-    setStats(dashboardStats);
-    // Simulate loading for better UX
-    const timer = setTimeout(() => setLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, [dashboardStats]);
-
-  // **[REFACTORED]** Centralized data processing logic
+  // Simple data processing
   const processedData = useMemo(() => {
-    // Group attempts by candidate email to filter out duplicates
-    const candidateAttemptsMap = new Map();
+    let allAttempts = [];
 
-    // 1. Process candidates and collect their attempts
     candidates.forEach((candidate) => {
-      const email = candidate.email;
-      if (!email) return; // Skip if no email (required for proper identification)
+      if (!candidate.email) return;
 
-      // Handle both new data structure (with attempts) and old structure
-      const attemptsSource =
-        candidate.attempts && candidate.attempts.length > 0
-          ? candidate.attempts
-          : [{ ...candidate, attemptNumber: 1 }]; // Treat old data as a single attempt
+      const attempts = candidate.attempts?.length > 0 
+        ? candidate.attempts 
+        : [{ ...candidate, attemptNumber: 1 }];
 
-      // If candidate isn't in our map yet, initialize their entry
-      if (!candidateAttemptsMap.has(email)) {
-        candidateAttemptsMap.set(email, []);
-      }
-
-      // Add all attempts to the candidate's array
-      attemptsSource.forEach((attempt, index) => {
-        const uniqueKey =
-          attempt.id ||
-          `${candidate.id || candidate.email}-attempt-${
-            attempt.attemptNumber || index + 1
-          }`;
-
-        candidateAttemptsMap.get(email).push({
-          ...candidate, // Base candidate info
-          ...attempt, // Overwrite with specific attempt info
-          key: uniqueKey, // The unique key for the React component
+      attempts.forEach((attempt, index) => {
+        allAttempts.push({
+          key: attempt.id || `${candidate.email}-${index}`,
           candidateName: candidate.name,
           candidateEmail: candidate.email,
           candidatePhone: candidate.phone,
-          // Ensure attemptNumber is consistent
-          attemptNumber: attempt.attemptNumber || index + 1,
+          ...attempt,
+          attemptNumber: attempt.attemptNumber || (index + 1),
         });
       });
     });
 
-    // 2. Process each candidate's attempts to resolve the in-progress/completed issue
-    const allAttempts = [];
-    candidateAttemptsMap.forEach((attempts, email) => {
-      // Sort attempts by date to ensure we're working with the correct order
-      const sortedAttempts = attempts.sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-        return dateA - dateB; // Oldest first for proper sequencing
-      });
-
-      // Find pairs of in-progress and completed attempts that are related
-      // (likely the same interview that changed status)
-      const processedIds = new Set();
-      const finalAttempts = [];
-
-      // First pass: identify completed attempts and their in-progress counterparts
-      for (let i = 0; i < sortedAttempts.length; i++) {
-        const attempt = sortedAttempts[i];
-
-        // Skip if we've already processed this attempt
-        if (processedIds.has(attempt.id)) continue;
-
-        // If this is a completed attempt, look for a matching in-progress attempt
-        if (attempt.status === "Completed") {
-          // Look for an in-progress attempt with similar creation time (within 24 hours)
-          // or matching interview ID pattern
-          const matchingInProgress = sortedAttempts.find(
-            (a) =>
-              a.status === "In Progress" &&
-              !processedIds.has(a.id) &&
-              // Same base ID (if the ID format follows a pattern we can match)
-              ((attempt.id &&
-                a.id &&
-                attempt.id.split("_")[0] === a.id.split("_")[0]) ||
-                // Creation dates within 24 hours
-                (attempt.createdAt &&
-                  a.createdAt &&
-                  Math.abs(
-                    new Date(attempt.createdAt) - new Date(a.createdAt)
-                  ) < 86400000))
-          );
-
-          if (matchingInProgress) {
-            // We found a matching pair - keep the completed one but use the attempt number from in-progress
-            processedIds.add(attempt.id);
-            processedIds.add(matchingInProgress.id);
-
-            // Use the lower attempt number to maintain consistency
-            const attemptNumber = Math.min(
-              attempt.attemptNumber || Number.MAX_SAFE_INTEGER,
-              matchingInProgress.attemptNumber || Number.MAX_SAFE_INTEGER
-            );
-
-            finalAttempts.push({
-              ...attempt,
-              attemptNumber: attemptNumber,
-            });
-          } else {
-            // No match found, keep as is
-            processedIds.add(attempt.id);
-            finalAttempts.push(attempt);
-          }
-        }
-      }
-
-      // Second pass: add any remaining unmatched in-progress attempts
-      for (let i = 0; i < sortedAttempts.length; i++) {
-        const attempt = sortedAttempts[i];
-        if (!processedIds.has(attempt.id)) {
-          finalAttempts.push(attempt);
-          processedIds.add(attempt.id);
-        }
-      }
-
-      // Add the processed attempts to our final collection
-      allAttempts.push(...finalAttempts);
-    });
-
-    // 3. Deduplicate using the unique key (handles any lingering data issues)
-    const uniqueAttempts = Array.from(
-      new Map(allAttempts.map((item) => [item.key, item])).values()
-    );
-
-    // 5. Apply filtering and sorting
-    let filteredData = uniqueAttempts;
-
+    // Apply tab filtering
+    let filteredData = allAttempts;
     if (activeTab === "2") {
-      filteredData = uniqueAttempts.filter((c) => c.status === "Completed");
+      filteredData = allAttempts.filter((item) => item.status === "Completed");
     } else if (activeTab === "3") {
-      filteredData = uniqueAttempts.filter((c) => c.status === "In Progress");
+      filteredData = allAttempts.filter((item) => item.status === "In Progress");
     }
 
+    // Apply search filtering
     if (search) {
-      filteredData = filteredData.filter(
-        (c) =>
-          c.candidateName?.toLowerCase().includes(search.toLowerCase()) ||
-          c.candidateEmail?.toLowerCase().includes(search.toLowerCase())
+      filteredData = filteredData.filter((item) =>
+        item.candidateName?.toLowerCase().includes(search.toLowerCase()) ||
+        item.candidateEmail?.toLowerCase().includes(search.toLowerCase())
       );
     }
 
+    // Apply sorting
     if (sortKey && sortOrder) {
       filteredData.sort((a, b) => {
-        const dir = sortOrder === "ascend" ? 1 : -1;
-        let valA, valB;
+        const direction = sortOrder === "ascend" ? 1 : -1;
+        let valueA = a[sortKey] || "";
+        let valueB = b[sortKey] || "";
 
         if (sortKey === "score") {
-          valA = a.score ?? -1; // Treat null scores as lowest
-          valB = b.score ?? -1;
+          valueA = a.score ?? -1;
+          valueB = b.score ?? -1;
         } else if (sortKey === "interviewDate") {
-          valA = getRecordDate(a);
-          valB = getRecordDate(b);
-        } else if (
-          sortKey === "candidateName" ||
-          sortKey === "candidateEmail"
-        ) {
-          valA = a[sortKey] || "";
-          valB = b[sortKey] || "";
-          return dir * valA.localeCompare(valB);
-        } else {
-          valA = a[sortKey] || "";
-          valB = b[sortKey] || "";
+          valueA = new Date(a.interviewDate || a.createdAt || 0);
+          valueB = new Date(b.interviewDate || b.createdAt || 0);
+        } else if (typeof valueA === "string") {
+          return direction * valueA.localeCompare(valueB);
         }
 
-        if (valA < valB) return -1 * dir;
-        if (valA > valB) return 1 * dir;
+        if (valueA < valueB) return -1 * direction;
+        if (valueA > valueB) return 1 * direction;
         return 0;
       });
     }
@@ -277,11 +128,94 @@ const InterviewerPage = () => {
     return filteredData;
   }, [candidates, search, sortKey, sortOrder, activeTab]);
 
+  // Calculate stats
+  const stats = useMemo(() => {
+    const allAttempts = [];
+    candidates.forEach(candidate => {
+      const attempts = candidate.attempts?.length > 0 
+        ? candidate.attempts 
+        : [candidate];
+      allAttempts.push(...attempts);
+    });
+
+    const completed = allAttempts.filter(item => item.status === "Completed");
+    const inProgress = allAttempts.filter(item => item.status === "In Progress");
+    const scoresArray = completed.filter(item => item.score != null).map(item => item.score);
+    const avgScore = scoresArray.length > 0 
+      ? Math.round(scoresArray.reduce((a, b) => a + b, 0) / scoresArray.length)
+      : 0;
+
+    return {
+      total: allAttempts.length,
+      completed: completed.length,
+      inProgress: inProgress.length,
+      avgScore,
+    };
+  }, [candidates]);
+
+  // Calculate detailed analytics for selected candidate
+  const candidateAnalytics = useMemo(() => {
+    if (!selectedCandidate) return null;
+
+    const transcript = selectedCandidate.transcript || [];
+    const answers = selectedCandidate.answers || [];
+    const questions = selectedCandidate.questions || [];
+    
+    // For in-progress interviews, use current question data
+    const totalQuestions = questions.length || transcript.length || 10; // fallback to 10
+    const answeredQuestions = transcript.length || answers.length || 0;
+    const unansweredQuestions = Math.max(0, totalQuestions - answeredQuestions);
+    
+    // Calculate score analytics
+    const scoredAnswers = transcript.filter(item => item.score != null);
+    const correctAnswers = scoredAnswers.filter(item => item.score >= 7).length;
+    const incorrectAnswers = scoredAnswers.filter(item => item.score < 7).length;
+    const partialAnswers = scoredAnswers.filter(item => item.score >= 4 && item.score < 7).length;
+    
+    // Calculate completion percentage
+    const completionPercentage = totalQuestions > 0 
+      ? Math.round((answeredQuestions / totalQuestions) * 100)
+      : 0;
+
+    // Calculate average time per question (if available)
+    const timings = answers.map(a => a.secondsSpent).filter(t => t != null);
+    const avgTimePerQuestion = timings.length > 0 
+      ? Math.round(timings.reduce((a, b) => a + b, 0) / timings.length)
+      : null;
+
+    // Performance rating
+    const score = selectedCandidate.score;
+    let performanceRating = 0;
+    if (score >= 90) performanceRating = 5;
+    else if (score >= 80) performanceRating = 4;
+    else if (score >= 70) performanceRating = 3;
+    else if (score >= 60) performanceRating = 2;
+    else if (score >= 40) performanceRating = 1;
+
+    return {
+      totalQuestions,
+      answeredQuestions,
+      unansweredQuestions,
+      correctAnswers,
+      incorrectAnswers,
+      partialAnswers,
+      completionPercentage,
+      avgTimePerQuestion,
+      performanceRating,
+      isInProgress: selectedCandidate.status === "In Progress",
+      isCompleted: selectedCandidate.status === "Completed",
+    };
+  }, [selectedCandidate]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Helper functions
   const getStatusBadge = (status) => {
-    if (status === "Completed")
-      return <Badge status="success" text="Completed" />;
-    if (status === "In Progress")
-      return <Badge status="processing" text="In Progress" />;
+    if (status === "Completed") return <Badge status="success" text="Completed" />;
+    if (status === "In Progress") return <Badge status="processing" text="In Progress" />;
     return <Badge status="default" text={status || "Pending"} />;
   };
 
@@ -293,111 +227,107 @@ const InterviewerPage = () => {
     return <Tag color="red">{score}%</Tag>;
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatDuration = (seconds) => {
+    if (!seconds) return "N/A";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
+  };
+
+  // Table columns
   const columns = [
     {
       title: "Candidate",
       dataIndex: "candidateName",
       key: "candidateName",
       sorter: true,
-      render: (_, record) => (
-        <Space>
-          <Avatar className={record.score ? "bg-blue-500" : "bg-gray-400"}>
-            {record.candidateName ? (
-              record.candidateName.charAt(0).toUpperCase()
-            ) : (
-              <UserOutlined />
-            )}
-          </Avatar>
+      render: (text, record) => (
+        <div className="flex items-center">
+          <Avatar size="small" icon={<UserOutlined />} className="mr-2" />
           <div>
-            <div className="font-medium">
-              {record.candidateName || "Anonymous"}
-            </div>
+            <div className="font-medium">{text}</div>
             <div className="text-xs text-gray-500">{record.candidateEmail}</div>
           </div>
-        </Space>
+        </div>
       ),
-    },
-    {
-      title: "Attempt",
-      dataIndex: "attemptNumber",
-      key: "attemptNumber",
-      width: 100,
-      render: (num) => <Tag color="blue">Attempt #{num || 1}</Tag>,
     },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      sorter: true,
-      render: getStatusBadge,
+      render: (status) => getStatusBadge(status),
+      filters: [
+        { text: "Completed", value: "Completed" },
+        { text: "In Progress", value: "In Progress" },
+      ],
+      onFilter: (value, record) => record.status === value,
     },
     {
       title: "Score",
       dataIndex: "score",
       key: "score",
       sorter: true,
-      render: getScoreTag,
+      render: (score) => getScoreTag(score),
+    },
+    {
+      title: "Attempt",
+      dataIndex: "attemptNumber",
+      key: "attemptNumber",
+      render: (num) => `#${num || 1}`,
     },
     {
       title: "Date",
       dataIndex: "interviewDate",
       key: "interviewDate",
       sorter: true,
-      render: (_, record) => {
-        const interviewDate = getRecordDate(record);
-        if (!interviewDate) return "N/A";
-        return (
-          <Tooltip title={interviewDate.toLocaleString()}>
-            <Space>
-              <CalendarOutlined />
-              {interviewDate.toLocaleDateString()}
-            </Space>
-          </Tooltip>
-        );
-      },
+      render: (date, record) => formatDate(date || record.createdAt),
     },
     {
       title: "Actions",
       key: "actions",
       render: (_, record) => (
         <Button
-          type="primary"
-          size="small"
+          type="link"
           icon={<EyeOutlined />}
-          onClick={(e) => {
-            e.stopPropagation();
-            setSelected(record);
+          onClick={() => {
+            setSelectedCandidate(record);
+            setDrawerVisible(true);
           }}
         >
-          View
+          View Details
         </Button>
       ),
     },
   ];
 
-  // Show loading spinner when data is loading
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <Spin size="large" />
-          <div className="mt-4">
-            <Text className="text-gray-600">Loading dashboard...</Text>
-          </div>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Spin size="large" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header Section */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <Title level={2} className="mb-1">
-                Interviewer Dashboard
+              <Title level={2} className="!mb-1">
+                📊 Interview Dashboard
               </Title>
               <Text className="text-gray-600">
                 Track candidate interviews and review their performance
@@ -409,19 +339,19 @@ const InterviewerPage = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Dashboard Stats */}
+        {/* Stats Cards */}
         <Row gutter={[16, 16]} className="mb-6">
           <Col xs={24} sm={12} lg={6}>
-            <Card variant="borderless">
+            <Card>
               <Statistic
-                title="Total Candidates"
+                title="Total Interviews"
                 value={stats.total}
                 prefix={<TeamOutlined />}
               />
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card variant="borderless">
+            <Card>
               <Statistic
                 title="Completed"
                 value={stats.completed}
@@ -431,7 +361,7 @@ const InterviewerPage = () => {
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card variant="borderless">
+            <Card>
               <Statistic
                 title="In Progress"
                 value={stats.inProgress}
@@ -441,7 +371,7 @@ const InterviewerPage = () => {
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card variant="borderless">
+            <Card>
               <Statistic
                 title="Average Score"
                 value={stats.avgScore || "N/A"}
@@ -460,6 +390,7 @@ const InterviewerPage = () => {
           </Col>
         </Row>
 
+        {/* Tabs */}
         <Tabs
           activeKey={activeTab}
           onChange={setActiveTab}
@@ -467,167 +398,316 @@ const InterviewerPage = () => {
           items={[
             {
               key: "1",
-              label: (
-                <span>
-                  <TeamOutlined /> All Attempts
-                </span>
-              ),
+              label: <span><TeamOutlined /> All Interviews</span>,
             },
             {
-              key: "2",
-              label: (
-                <span>
-                  <CheckCircleOutlined /> Completed
-                </span>
-              ),
+              key: "2", 
+              label: <span><CheckCircleOutlined /> Completed</span>,
             },
             {
               key: "3",
-              label: (
-                <span>
-                  <ClockCircleOutlined /> In Progress
-                </span>
-              ),
+              label: <span><ClockCircleOutlined /> In Progress</span>,
             },
           ]}
         />
 
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+        {/* Search */}
+        <div className="flex justify-between items-center mb-4">
           <Input.Search
             placeholder="Search by name or email"
             value={search}
             onChange={(e) => dispatch(setSearch(e.target.value))}
-            className="w-full sm:max-w-xs"
+            className="max-w-xs"
             allowClear
           />
+          <Text type="secondary">
+            Showing {processedData.length} interview{processedData.length !== 1 ? 's' : ''}
+          </Text>
         </div>
 
-        {/* Candidates Table */}
-        <Card variant="borderless">
+        {/* Table */}
+        <Card>
           <Table
-            // **[SIMPLIFIED]** Use the guaranteed unique key from our processed data
-            rowKey="key"
             columns={columns}
             dataSource={processedData}
-            loading={loading}
-            onChange={(pagination, filters, sorter) => {
-              dispatch(setSort({ key: sorter.field, order: sorter.order }));
-            }}
-            onRow={(record) => ({
-              onClick: () => setSelected(record),
-              style: { cursor: "pointer" },
-            })}
             pagination={{
-              showSizeChanger: true,
+              total: processedData.length,
               pageSize: 10,
-              showTotal: (total) => `Total ${total} items`,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) =>
+                `${range[0]}-${range[1]} of ${total} interviews`,
             }}
-            locale={{ emptyText: <Empty description="No candidates found" /> }}
+            onChange={(pagination, filters, sorter) => {
+              if (sorter) {
+                dispatch(setSort({
+                  key: sorter.field,
+                  order: sorter.order,
+                }));
+              }
+            }}
           />
         </Card>
+      </div>
 
-        {/* Candidate Details Drawer (No changes needed here, but included for completeness) */}
-        <Drawer
-          open={!!selected}
-          onClose={() => setSelected(null)}
-          width={window.innerWidth > 800 ? 800 : "90%"}
-          title="Candidate Attempt Details"
-        >
-          {selected && (
-            <Space direction="vertical" size="large" className="w-full">
-              <Descriptions bordered column={1} title="Profile">
-                <Descriptions.Item label="Name">
-                  {selected.candidateName}
-                </Descriptions.Item>
-                <Descriptions.Item label="Email">
-                  {selected.candidateEmail}
-                </Descriptions.Item>
-                <Descriptions.Item label="Phone">
-                  {selected.candidatePhone || "N/A"}
-                </Descriptions.Item>
-              </Descriptions>
+      {/* ENHANCED Production-Grade Details Drawer - Half Screen */}
+      <Drawer
+        title={null}
+        placement="right"
+        width="65vw" // 50vw Half screen width
+        open={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        styles={{
+          body: { padding: 0 },
+        }}
+      >
+        {selectedCandidate && candidateAnalytics && (
+          <div className="h-full flex flex-col">
+            
 
-              <Descriptions bordered column={1} title="Interview Details">
-                <Descriptions.Item label="Attempt">{`#${selected.attemptNumber}`}</Descriptions.Item>
-                <Descriptions.Item label="Date">
-                  {getRecordDate(selected)?.toLocaleString() || "N/A"}
-                </Descriptions.Item>
-                <Descriptions.Item label="Status">
-                  {getStatusBadge(selected.status)}
-                </Descriptions.Item>
-                <Descriptions.Item label="Score">
-                  {getScoreTag(selected.score)}
-                </Descriptions.Item>
-              </Descriptions>
+            {/* Content Area - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Header Section */}
+            <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-6 rounded-lg ">
+              <div className="flex items-center space-x-4">
+                <Avatar size={64} icon={<UserOutlined />} className="bg-white text-blue-500" />
+                <div className="flex-1">
+                  <Title level={3} className="!text-white !mb-1">
+                    {selectedCandidate.candidateName}
+                  </Title>
+                  <Space direction="vertical" size={0}>
+                    <Text className="text-blue-100">
+                      <MailOutlined className="mr-2" />
+                      {selectedCandidate.candidateEmail}
+                    </Text>
+                    {selectedCandidate.candidatePhone && (
+                      <Text className="text-blue-100">
+                        <PhoneOutlined className="mr-2" />
+                        {selectedCandidate.candidatePhone}
+                      </Text>
+                    )}
+                  </Space>
+                </div>
+                <div className="text-right">
+                  {getStatusBadge(selectedCandidate.status)}
+                  <div className="mt-2">
+                    {candidateAnalytics.isCompleted && (
+                      <Rate 
+                        disabled 
+                        value={candidateAnalytics.performanceRating} 
+                        className="text-yellow-300" 
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+              {/* Quick Stats Row */}
+              <Row gutter={[16, 16]}>
+                <Col span={8}>
+                  <Card size="small" className="text-center">
+                    <Statistic
+                      title="Questions Answered"
+                      value={candidateAnalytics.answeredQuestions}
+                      suffix={`/ ${candidateAnalytics.totalQuestions}`}
+                      prefix={<CheckCircleOutlined className="text-green-500" />}
+                      valueStyle={{ color: "#52c41a", fontSize: "18px" }}
+                    />
+                  </Card>
+                </Col>
+                <Col span={8}>
+                  <Card size="small" className="text-center">
+                    <Statistic
+                      title="Completion"
+                      value={candidateAnalytics.completionPercentage}
+                      suffix="%"
+                      prefix={<BarChartOutlined className="text-blue-500" />}
+                      valueStyle={{ color: "#1890ff", fontSize: "18px" }}
+                    />
+                  </Card>
+                </Col>
+                <Col span={8}>
+                  <Card size="small" className="text-center">
+                    <Statistic
+                      title={candidateAnalytics.isCompleted ? "Final Score" : "Current Progress"}
+                      value={candidateAnalytics.isCompleted ? selectedCandidate.score : candidateAnalytics.answeredQuestions}
+                      suffix={candidateAnalytics.isCompleted ? "%" : " answered"}
+                      prefix={<TrophyOutlined className="text-orange-500" />}
+                      valueStyle={{ 
+                        color: candidateAnalytics.isCompleted 
+                          ? (selectedCandidate.score >= 70 ? "#52c41a" : "#faad14")
+                          : "#722ed1", 
+                        fontSize: "18px" 
+                      }}
+                    />
+                  </Card>
+                </Col>
+              </Row>
 
-              <Card size="small" title="AI Summary">
-                {selected.summary ? (
-                  <Paragraph>{selected.summary}</Paragraph>
-                ) : (
-                  <Empty description="No summary available" />
-                )}
+              {/* Progress Bar */}
+              <Card title="Interview Progress" size="small">
+                <Progress
+                  percent={candidateAnalytics.completionPercentage}
+                  status={candidateAnalytics.isCompleted ? "success" : "active"}
+                  strokeColor={candidateAnalytics.isCompleted ? "#52c41a" : "#1890ff"}
+                />
+                <div className="mt-2 text-sm text-gray-600">
+                  {candidateAnalytics.isInProgress && (
+                    <Text type="secondary">
+                      <PlayCircleOutlined className="mr-1" />
+                      Interview in progress - {candidateAnalytics.unansweredQuestions} questions remaining
+                    </Text>
+                  )}
+                  {candidateAnalytics.isCompleted && (
+                    <Text type="success">
+                      <CheckCircleOutlined className="mr-1" />
+                      Interview completed on {formatDate(selectedCandidate.completedAt || selectedCandidate.interviewDate)}
+                    </Text>
+                  )}
+                </div>
               </Card>
 
-              <Tabs
-                defaultActiveKey="1"
-                items={[
-                  {
-                    key: "1",
-                    label: (
-                      <span>
-                        <FileTextOutlined /> Resume
-                      </span>
-                    ),
-                    children: (
-                      <>
-                        <Alert
-                          message="Extracted resume text"
-                          type="info"
-                          showIcon
-                          className="mb-4"
-                        />
-                        <div className="whitespace-pre-wrap bg-gray-50 p-4 border rounded max-h-96 overflow-auto text-xs">
-                          {selected.resumeText || "No resume text available."}
+              {/* Performance Breakdown (for completed interviews) */}
+              {candidateAnalytics.isCompleted && candidateAnalytics.correctAnswers > 0 && (
+                <Card title="Performance Breakdown" size="small">
+                  <Row gutter={[16, 16]}>
+                    <Col span={8}>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-500">{candidateAnalytics.correctAnswers}</div>
+                        <div className="text-sm text-gray-600">
+                          <CheckOutlined className="mr-1" />
+                          Correct
                         </div>
-                      </>
-                    ),
-                  },
-                  {
-                    key: "2",
-                    label: (
-                      <span>
-                        <InfoCircleOutlined /> Q&A Transcript
-                      </span>
-                    ),
-                    children: (
-                      <>
-                        {selected.transcript &&
-                        selected.transcript.length > 0 ? (
-                          selected.transcript.map((t, i) => (
-                            <div
-                              key={i}
-                              className="mb-4 pb-4 border-b last:border-b-0"
+                      </div>
+                    </Col>
+                    <Col span={8}>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-500">{candidateAnalytics.partialAnswers}</div>
+                        <div className="text-sm text-gray-600">
+                          <MinusOutlined className="mr-1" />
+                          Partial
+                        </div>
+                      </div>
+                    </Col>
+                    <Col span={8}>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-red-500">{candidateAnalytics.incorrectAnswers}</div>
+                        <div className="text-sm text-gray-600">
+                          <CloseOutlined className="mr-1" />
+                          Incorrect
+                        </div>
+                      </div>
+                    </Col>
+                  </Row>
+                </Card>
+              )}
+
+              {/* Interview Details */}
+              <Card title="Interview Details" size="small">
+                <Descriptions column={2} size="small">
+                  <Descriptions.Item label="Attempt Number">
+                    #{selectedCandidate.attemptNumber || 1}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Started">
+                    {formatDate(selectedCandidate.createdAt || selectedCandidate.interviewDate)}
+                  </Descriptions.Item>
+                  {candidateAnalytics.isCompleted && (
+                    <Descriptions.Item label="Completed">
+                      {formatDate(selectedCandidate.completedAt)}
+                    </Descriptions.Item>
+                  )}
+                  {candidateAnalytics.avgTimePerQuestion && (
+                    <Descriptions.Item label="Avg. Time/Question">
+                      {formatDuration(candidateAnalytics.avgTimePerQuestion)}
+                    </Descriptions.Item>
+                  )}
+                  <Descriptions.Item label="Interview Type">
+                    <Tag color="blue">MCQ Assessment</Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Total Questions">
+                    {candidateAnalytics.totalQuestions}
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+
+              {/* Interview Summary */}
+              {selectedCandidate.summary && (
+                <Card title="AI Summary" size="small">
+                  <Paragraph>{selectedCandidate.summary}</Paragraph>
+                </Card>
+              )}
+
+              {/* Question by Question Breakdown */}
+              {selectedCandidate.transcript && selectedCandidate.transcript.length > 0 && (
+                <Card title="Question by Question Analysis" size="small">
+                  <List
+                    itemLayout="vertical"
+                    dataSource={selectedCandidate.transcript}
+                    renderItem={(item, index) => (
+                      <List.Item
+                        key={index}
+                        extra={
+                          item.score != null ? (
+                            <Tag
+                              color={
+                                item.score >= 8 ? "green" :
+                                item.score >= 6 ? "orange" : "red"
+                              }
+                              className="ml-2"
                             >
-                              <Text strong>
-                                Q{i + 1}: {t.q}
-                              </Text>
-                              <div className="bg-gray-50 p-2 rounded mt-2">
-                                <Text>{t.a || "No answer provided"}</Text>
+                              {item.score}/10
+                            </Tag>
+                          ) : (
+                            <Tag color="default">Pending</Tag>
+                          )
+                        }
+                      >
+                        <List.Item.Meta
+                          avatar={
+                            <Avatar size="small" className="bg-blue-500">
+                              Q{index + 1}
+                            </Avatar>
+                          }
+                          title={
+                            <Text strong className="text-sm">
+                              {item.q}
+                            </Text>
+                          }
+                          description={
+                            <div className="space-y-2">
+                              <div>
+                                <Text className="text-xs text-gray-600">Answer:</Text>
+                                <div className="text-sm">{item.a || "No answer provided"}</div>
                               </div>
+                              {item.explanation && (
+                                <div>
+                                  <Text className="text-xs text-gray-600">Feedback:</Text>
+                                  <div className="text-sm text-gray-700">{item.explanation}</div>
+                                </div>
+                              )}
                             </div>
-                          ))
-                        ) : (
-                          <Empty description="No transcript available" />
-                        )}
-                      </>
-                    ),
-                  },
-                ]}
-              />
-            </Space>
-          )}
-        </Drawer>
-      </div>
+                          }
+                        />
+                      </List.Item>
+                    )}
+                  />
+                </Card>
+              )}
+
+              {/* In-Progress Status */}
+              {candidateAnalytics.isInProgress && (
+                <Alert
+                  message="Interview In Progress"
+                  description={`The candidate is currently answering question ${candidateAnalytics.answeredQuestions + 1} of ${candidateAnalytics.totalQuestions}. Real-time updates will appear here.`}
+                  type="info"
+                  showIcon
+                  icon={<ClockCircleOutlined />}
+                />
+              )}
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 };
