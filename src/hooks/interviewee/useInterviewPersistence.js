@@ -14,7 +14,8 @@ export const useInterviewPersistence = () => {
         status,
         currentQuestionIndex,
         answers,
-        currentInterviewId
+        currentInterviewId,
+        questions,
     } = useSelector((s) => s.interviewee);
 
     // Save interview progress on changes
@@ -41,16 +42,15 @@ export const useInterviewPersistence = () => {
 
     // Check for resumable interview on app load/restart
     useEffect(() => {
-        // Check if there's a saved interview in progress
+        // This effect should run once on mount to detect any resumable interviews.
         const keys = Object.keys(localStorage);
         const progressKeys = keys.filter(k => k.startsWith(STORAGE_KEYS.INTERVIEW_PROGRESS));
 
         console.log('Interview persistence: checking for resumable interviews', {
             progressKeysFound: progressKeys.length,
-            currentInProgress: inProgress
         });
 
-        if (progressKeys.length > 0 && !inProgress) {
+        if (progressKeys.length > 0) {
             // Find the most recent interview
             let latestKey = progressKeys[0];
             let latestData = loadFromStorage(latestKey);
@@ -92,103 +92,31 @@ export const useInterviewPersistence = () => {
                 setResumableInterviewInfo({
                     interviewId: latestData.currentInterviewId,
                     questionIndex: latestData.currentQuestionIndex,
+                    answersCount: latestData.answersCount,
+                    totalQuestions: questions.length,
                     timestamp: latestData.timestamp
                 });
 
-                // Always show the modal for better discoverability
+                // Set a flag in localStorage to ensure the modal is shown on the next page
                 console.log('Setting show_resume_interview_modal flag to force modal display');
                 localStorage.setItem('show_resume_interview_modal', 'true');
-
-                // Set a flag in sessionStorage to prevent infinite loops if user keeps refreshing
-                if (!sessionStorage.getItem('interview_resume_attempted')) {
-                    sessionStorage.setItem('interview_resume_attempted', 'true');
-
-                    // Auto-show the resume modal when navigating to pre-interview or dashboard
-                    if (window.location.pathname.includes('dashboard') ||
-                        window.location.pathname.includes('pre-interview')) {
-                        console.log('On correct page for resume modal, will show it');
-                    }
-                }
-            }
-        }
-    }, [dispatch, inProgress]);
-
-    // Function to resume an interview
-    const resumeInterviewSession = (interviewId) => {
-        console.log('Attempting to resume interview with ID:', interviewId);
-
-        if (!interviewId) {
-            // If no specific ID provided, check for any resumable interview
-            const keys = Object.keys(localStorage);
-            const progressKeys = keys.filter(k => k.startsWith(STORAGE_KEYS.INTERVIEW_PROGRESS));
-
-            if (progressKeys.length > 0) {
-                // Use the first available interview
-                const keyParts = progressKeys[0].split('_');
-                interviewId = keyParts[keyParts.length - 1];
-                console.log('No specific ID provided, using found ID:', interviewId);
             } else {
-                console.log('No resumable interviews found in localStorage');
-                return false;
-            }
-        }
-
-        try {
-            // Find the saved interview data
-            const savedData = loadFromStorage(`${STORAGE_KEYS.INTERVIEW_PROGRESS}_${interviewId}`);
-
-            if (savedData && savedData.inProgress && savedData.status === 'in_progress') {
-                console.log('Found valid interview data to resume:', savedData);
-
-                // Import the action from the slice
-                const { resumeInterview } = require('../../store/intervieweeSlice');
-
-                // Dispatch the resume action
-                dispatch(resumeInterview());
-
-                // Make sure to clear all resume modal flags
+                // If no valid in-progress interview is found, ensure the flag is cleared
+                console.log('No valid in-progress interviews found, clearing modal flag.');
                 localStorage.removeItem('show_resume_interview_modal');
-                sessionStorage.removeItem('interview_resume_attempted');
-
-                // Log the successfully resumed interview
-                console.log('Interview successfully resumed with data:', savedData);
-
-                return true;
-            } else {
-                console.log('Found invalid or completed interview data:', savedData);
-                localStorage.removeItem(`${STORAGE_KEYS.INTERVIEW_PROGRESS}_${interviewId}`);
             }
-        } catch (err) {
-            console.error('Failed to resume interview:', err);
+        } else {
+            // If there are no progress keys, clear the flag
+            localStorage.removeItem('show_resume_interview_modal');
         }
+    }, []); // Run only once on component mount
 
-        return false;
-    };
-
-    // Check if there's a saved interview that can be resumed
-    const checkForResumableInterview = () => {
-        const keys = Object.keys(localStorage);
-        const progressKeys = keys.filter(k => k.startsWith(STORAGE_KEYS.INTERVIEW_PROGRESS));
-
-        // If there are no progress keys, no interviews can be resumed
-        if (progressKeys.length === 0) {
-            return false;
-        }
-
-        // Check if any of the progress keys contain valid resumable interview data
-        return progressKeys.some(key => {
-            const data = loadFromStorage(key);
-            return data &&
-                data.inProgress === true &&
-                data.status === 'in_progress' &&
-                !data.completed;
-        });
-    };
+    // Expose a flag indicating if there's a resumable interview
+    const hasSavedProgress = !!resumableInterviewInfo;
 
     return {
-        hasSavedProgress: checkForResumableInterview(),
-        resumeInterviewSession,
-        resumableInterviewInfo
+        hasSavedProgress,
+        resumableInterviewInfo,
     };
 };
 

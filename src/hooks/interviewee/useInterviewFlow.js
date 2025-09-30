@@ -169,10 +169,10 @@ export const useInterviewFlow = () => {
             );
 
             // Update interviewer's candidate list with a new attempt
-            const attemptId = Date.now().toString();
+            // Use the currentInterviewId for consistency
             dispatch(
                 upsertCandidate({
-                    id: attemptId,
+                    id: currentInterviewId, // Use the same ID for consistency
                     name: profile.name,
                     email: profile.email,
                     phone: profile.phone,
@@ -183,6 +183,8 @@ export const useInterviewFlow = () => {
                     transcript: [],
                     interviewId: currentInterviewId,
                     interviewDate: new Date().toISOString(),
+                    // Add a timestamp for tracking
+                    createdAt: new Date().toISOString()
                 })
             );
 
@@ -244,7 +246,7 @@ export const useInterviewFlow = () => {
                         dispatch(completeInterview(scoringResult));
 
                         // Update interviewer's candidate list with final results
-                        const attemptId = Date.now().toString();
+                        // Use the existing interviewId for consistency
                         const transcript = questions.map((q, i) => ({
                             q: q.text || q.question || "",
                             a: answers[i]?.answer || "",
@@ -254,7 +256,7 @@ export const useInterviewFlow = () => {
 
                         dispatch(
                             upsertCandidate({
-                                id: attemptId,
+                                id: currentInterviewId, // Use the same ID for consistency
                                 name: profile.name,
                                 email: profile.email,
                                 phone: profile.phone,
@@ -265,6 +267,8 @@ export const useInterviewFlow = () => {
                                 transcript,
                                 completedAt: new Date().toISOString(),
                                 interviewDate: new Date().toISOString(),
+                                // Add a flag for final update
+                                isFinalUpdate: true
                             })
                         );
 
@@ -364,11 +368,28 @@ export const useInterviewFlow = () => {
     }, [dispatch, resume, currentStep, navigate]);
 
     // View results
-    const handleViewResults = useCallback(() => {
-        console.log("useInterviewFlow: Viewing results from dashboard");
+    const handleViewResults = useCallback((interviewId) => {
+        console.log("useInterviewFlow: Viewing results from dashboard", { interviewId });
+
+        // If an interview ID was provided, we need to load that specific interview
+        if (interviewId) {
+            const pastInterview = pastInterviews?.find(interview => interview.id === interviewId);
+
+            if (pastInterview) {
+                console.log("Found past interview to display:", pastInterview);
+                // Dispatch action to load this interview data into the current state
+                dispatch({
+                    type: 'interviewee/viewPastInterview',
+                    payload: interviewId
+                });
+            } else {
+                console.warn("Interview not found with ID:", interviewId);
+            }
+        }
+
         // Navigate to the summary page
         navigate("/interviewee/summary");
-    }, [navigate]);
+    }, [navigate, pastInterviews, dispatch]);
 
     // Handle retaking interview
     const handleRetakeInterview = useCallback(() => {

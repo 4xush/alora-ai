@@ -13,15 +13,20 @@ import {
   PhoneOutlined,
 } from "@ant-design/icons";
 import ResumeUploader from "../../components/ResumeUploader/ResumeUploader";
+
+import ResumeInterviewModal from "../../components/ResumeInterviewModal/ResumeInterviewModal";
 import useInterviewFlow from "../../hooks/interviewee/useInterviewFlow";
-import useInterviewPersistence from "../../hooks/interviewee/useInterviewPersistence";
+import { useInterviewPersistence } from "../../hooks/interviewee/useInterviewPersistence";
 import {
   setCurrentStep,
   updateProfileField,
   setProfile,
   clearError,
   resumeInterview,
+  resetInterview,
 } from "../../store/intervieweeSlice";
+import { removeInProgressAttempt } from "../../store/interviewerSlice";
+import { STORAGE_KEYS } from "../../utils/storageUtils";
 
 const { Step } = Steps;
 const { Title, Text } = Typography;
@@ -42,7 +47,7 @@ const PreInterviewPage = () => {
     handleResumeInterview,
   } = useInterviewFlow();
 
-  const { hasSavedProgress } = useInterviewPersistence();
+  const { resumableInterviewInfo } = useInterviewPersistence();
 
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
@@ -70,17 +75,22 @@ const PreInterviewPage = () => {
 
   // Check for resumable interview
   useEffect(() => {
-    // Check both the redux state and localStorage flag
-    const shouldShowModal =
-      (inProgress && paused) ||
-      hasSavedProgress ||
-      localStorage.getItem("show_resume_interview_modal") === "true";
+    // Only check for resumable interviews if we are not in the middle of one
+    if (!inProgress && resumableInterviewInfo) {
+      const shouldShowModal =
+        localStorage.getItem("show_resume_interview_modal") === "true";
 
-    if (shouldShowModal) {
-      console.log("Showing resume interview modal");
-      setShowResumeModal(true);
+      if (shouldShowModal) {
+        console.log(
+          "Showing resume interview modal for:",
+          resumableInterviewInfo
+        );
+        setShowResumeModal(true);
+        // Once shown, clear the flag from localStorage
+        localStorage.removeItem("show_resume_interview_modal");
+      }
     }
-  }, [inProgress, paused, hasSavedProgress]);
+  }, [inProgress, resumableInterviewInfo]);
 
   // Redirect from invalid steps
   useEffect(() => {
@@ -183,7 +193,27 @@ const PreInterviewPage = () => {
   };
 
   const handleStartNew = () => {
+    if (resumableInterviewInfo?.interviewId) {
+      console.log(
+        "Starting new interview, clearing old progress for:",
+        resumableInterviewInfo.interviewId
+      );
+      // Clear from localStorage
+      localStorage.removeItem(
+        `${STORAGE_KEYS.INTERVIEW_PROGRESS}_${resumableInterviewInfo.interviewId}`
+      );
+      // Reset Redux state for interviewee
+      dispatch(resetInterview());
+      // Notify interviewer slice to remove this in-progress attempt
+      dispatch(
+        removeInProgressAttempt({
+          interviewId: resumableInterviewInfo.interviewId,
+        })
+      );
+    }
     setShowResumeModal(false);
+    // Also clear any other potential flags
+    localStorage.removeItem("show_resume_interview_modal");
   };
 
   const displayError = localError || error;
@@ -462,39 +492,13 @@ const PreInterviewPage = () => {
       )}
 
       {/* Resume Interview Modal */}
-      <Modal
-        title="Resume Previous Interview"
+      <ResumeInterviewModal
         open={showResumeModal}
-        footer={null}
-        closable={false}
-        maskClosable={false}
-        className="top-20"
-      >
-        <div className="py-4">
-          <Text className="block mb-6 text-gray-600">
-            You have an interview in progress. Would you like to resume where
-            you left off?
-          </Text>
-          <div className="flex justify-end space-x-3">
-            <Button
-              onClick={handleStartNew}
-              icon={<UndoOutlined />}
-              size="large"
-            >
-              Start New
-            </Button>
-            <Button
-              type="primary"
-              onClick={handleResumeClick}
-              loading={resumeLoading}
-              icon={<PlayCircleOutlined />}
-              size="large"
-            >
-              Resume Interview
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        onStartNew={handleStartNew}
+        onResume={handleResumeClick}
+        loading={resumeLoading}
+        resumableInfo={resumableInterviewInfo}
+      />
     </div>
   );
 };

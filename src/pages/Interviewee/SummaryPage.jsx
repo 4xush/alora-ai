@@ -20,7 +20,7 @@ import {
   CloseCircleFilled,
   TrophyFilled,
   HomeOutlined,
-  ReloadOutlined
+  ReloadOutlined,
 } from "@ant-design/icons";
 import useInterviewFlow from "../../hooks/interviewee/useInterviewFlow";
 import { useNavigate } from "react-router-dom";
@@ -87,7 +87,29 @@ const SummaryPage = () => {
   // Calculate performance metrics
   const calculateMetrics = () => {
     console.log("Calculating metrics with", { questions, answers });
-    if (!questions?.length || !answers?.length) return null;
+
+    // Log more details about the data to help debug
+    console.log(
+      "Questions array:",
+      Array.isArray(questions) ? questions.length : "not an array"
+    );
+    console.log(
+      "Answers array:",
+      Array.isArray(answers) ? answers.length : "not an array"
+    );
+
+    // Safely handle null or empty arrays
+    if (
+      !Array.isArray(questions) ||
+      !questions.length ||
+      !Array.isArray(answers) ||
+      !answers.length
+    ) {
+      console.warn(
+        "Cannot calculate metrics: missing questions or answers data"
+      );
+      return null;
+    }
 
     const answeredQuestions = answers.filter(
       (answer) =>

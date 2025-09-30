@@ -22,9 +22,25 @@ const ensureStateProperties = (state) => {
   return state;
 };
 
-// Helper to create a unique interview ID
-const createInterviewId = () => {
-  return `interview_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+// Helper to create a unique interview ID based on user information and attempt count
+const createInterviewId = (state = null) => {
+  const timestamp = Date.now();
+  const randomPart = Math.random().toString(36).substr(2, 9);
+
+  // If state is provided, we can use profile information for a more unique ID
+  if (state) {
+    const email = state.profile?.email || '';
+    const sanitizedEmail = email.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().substring(0, 15);
+
+    // Count past interviews to determine attempt number
+    const pastCount = Array.isArray(state.pastInterviews) ? state.pastInterviews.length : 0;
+    const attemptNumber = pastCount + 1;
+
+    return `interview_${sanitizedEmail}_attempt${attemptNumber}_${timestamp}_${randomPart}`;
+  }
+
+  // Fallback when no state is provided
+  return `interview_${timestamp}_${randomPart}`;
 };
 
 const initialState = {
@@ -203,8 +219,8 @@ const intervieweeSlice = createSlice({
       const progressKeys = keys.filter(k => k.startsWith(STORAGE_KEYS.INTERVIEW_PROGRESS));
       progressKeys.forEach(key => localStorage.removeItem(key));
 
-      // Create new interview session
-      state.currentInterviewId = createInterviewId();
+      // Create new interview session with enhanced ID including user info
+      state.currentInterviewId = createInterviewId(state);
       state.interviewStartTime = new Date().toISOString();
       state.inProgress = true;
       state.paused = false;
@@ -260,7 +276,7 @@ const intervieweeSlice = createSlice({
 
       // Ensure we have a valid interview ID
       if (!state.currentInterviewId) {
-        state.currentInterviewId = createInterviewId();
+        state.currentInterviewId = createInterviewId(state);
       }
 
       // Make sure interviewStartTime is set
@@ -451,9 +467,9 @@ const intervieweeSlice = createSlice({
       localStorage.removeItem("interviewee_resumable_interview");
       console.log("Interview completed and saved to history");
 
-      // Create completed interview record
+      // Create completed interview record with enhanced ID
       const completedInterview = {
-        id: state.currentInterviewId || createInterviewId(),
+        id: state.currentInterviewId || createInterviewId(state),
         date: new Date().toISOString(),
         startTime: state.interviewStartTime,
         endTime: new Date().toISOString(),
@@ -566,8 +582,12 @@ const intervieweeSlice = createSlice({
       if (interview) {
         console.log("Viewing past interview:", interviewId);
         // Load the past interview data for viewing
-        state.questions = interview.questions;
-        state.answers = interview.answers;
+        state.questions = Array.isArray(interview.questions) ? interview.questions : [];
+        state.answers = Array.isArray(interview.answers) ? interview.answers : [];
+        state.finalScore = interview.finalScore;
+        state.finalSummary = interview.finalSummary || "";
+        state.status = "completed";
+        state.currentInterviewId = interview.id;
         state.finalScore = interview.finalScore;
         state.finalSummary = interview.finalSummary;
         state.currentStep = 3; // Show results

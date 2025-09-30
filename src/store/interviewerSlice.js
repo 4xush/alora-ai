@@ -12,7 +12,19 @@ const interviewerSlice = createSlice({
     upsertCandidate(state, action) {
       const candidateData = action.payload;
       const email = candidateData.email;
-      const attemptId = candidateData.id || Date.now().toString();
+
+      // Use the provided ID if it exists (which should be the interview ID)
+      // Only generate a new ID if one wasn't provided
+      let attemptId;
+      if (candidateData.id) {
+        attemptId = candidateData.id;
+      } else {
+        // Create a more robust and unique attemptId as fallback
+        const timestamp = Date.now();
+        const randomPart = Math.random().toString(36).substr(2, 9);
+        const sanitizedEmail = email ? email.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().substring(0, 15) : 'unknown';
+        attemptId = `interview_${sanitizedEmail}_${timestamp}_${randomPart}`;
+      }
 
       // If we have an email, find candidate by email, otherwise use id
       const existingCandidateIndex = email
@@ -48,22 +60,19 @@ const interviewerSlice = createSlice({
           });
         }
 
-        // Find the latest attempt with a score (after this update)
-        const attempts = [...candidate.attempts];
+        // Use the existing attempts array without creating duplicates
+        let attempts = [...candidate.attempts];
+
+        // Update or add the current attempt, but don't add it twice
         if (attemptIndex >= 0) {
+          // Update existing attempt
           attempts[attemptIndex] = {
             ...attempts[attemptIndex],
             ...candidateData,
             updatedAt: new Date().toISOString(),
           };
-        } else {
-          attempts.push({
-            ...candidateData,
-            id: attemptId,
-            attemptNumber: candidate.attempts.length + 1,
-            createdAt: new Date().toISOString(),
-          });
         }
+        // The else case is not needed here - we already added to candidate.attempts above
 
         // Get the most recent completed attempt with a score
         const completedAttempts = attempts
@@ -110,12 +119,46 @@ const interviewerSlice = createSlice({
       state.search = action.payload;
     },
     setSort(state, action) {
-      const { key, order } = action.payload;
-      state.sortKey = key;
-      state.sortOrder = order;
+      state.sortKey = action.payload.key;
+      state.sortOrder = action.payload.order;
     },
+    removeInProgressAttempt(state, action) {
+      const { interviewId } = action.payload;
+      if (!interviewId) return;
+
+      state.candidates.forEach(candidate => {
+        if (candidate.attempts) {
+          const initialCount = candidate.attempts.length;
+          candidate.attempts = candidate.attempts.filter(attempt => {
+            // Keep the attempt if it's NOT the one we want to remove
+            return !(attempt.id === interviewId && attempt.status === 'in_progress');
+          });
+
+          // If an attempt was removed, we might need to update the candidate's summary fields
+          if (candidate.attempts.length < initialCount) {
+            // Recalculate latest score and status from the remaining completed attempts
+            const completedAttempts = candidate.attempts
+              .filter(a => a.status === "Completed" && a.score != null)
+              .sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
+
+            const latestCompleted = completedAttempts[0] || null;
+            candidate.latestScore = latestCompleted ? latestCompleted.score : null;
+
+            // Recalculate latest status from all remaining attempts
+            const allAttempts = candidate.attempts
+              .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+            const latestAttempt = allAttempts[0] || null;
+            candidate.latestStatus = latestAttempt ? latestAttempt.status : 'No attempts';
+          }
+        }
+      });
+
+      // Optional: Clean up candidates with no attempts left
+      state.candidates = state.candidates.filter(c => c.attempts && c.attempts.length > 0);
+    }
   },
 });
 
-export const { upsertCandidate, setSearch, setSort } = interviewerSlice.actions;
+export const { upsertCandidate, setSearch, setSort, removeInProgressAttempt } = interviewerSlice.actions;
 export default interviewerSlice.reducer;

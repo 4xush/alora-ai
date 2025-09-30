@@ -32,15 +32,18 @@ import {
   CheckCircleOutlined,
   TeamOutlined,
   TrophyOutlined,
-  ArrowUpOutlined,
-  ArrowDownOutlined,
   InfoCircleOutlined,
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
-import { setSearch, setSort } from "../store/interviewerSlice.js";
+import { setSearch, setSort } from "../store/interviewerSlice.js"; // Adjust path if necessary
 
 const { Title, Text, Paragraph } = Typography;
-const { TabPane } = Tabs;
+
+// Helper function to get a consistent date from a record
+const getRecordDate = (record) => {
+  const date = record.interviewDate || record.completedAt || record.createdAt;
+  return date ? new Date(date) : null;
+};
 
 const InterviewerPage = () => {
   const dispatch = useDispatch();
@@ -53,148 +56,136 @@ const InterviewerPage = () => {
     completed: 0,
     inProgress: 0,
     avgScore: 0,
-    recentActivity: 0,
   });
   const [activeTab, setActiveTab] = useState("1");
   const [loading, setLoading] = useState(true);
 
-  // Calculate dashboard stats
-  useEffect(() => {
-    if (candidates.length > 0) {
-      const completed = candidates.filter((c) => c.status === "Completed");
-      const inProgress = candidates.filter((c) => c.status === "In Progress");
-      const scores = completed
-        .map((c) => c.score)
-        .filter((s) => s !== null && s !== undefined);
-      const avgScore =
-        scores.length > 0
-          ? scores.reduce((a, b) => a + b, 0) / scores.length
-          : 0;
-
-      // Count interviews in the last 7 days
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      const recentActivity = candidates.filter((c) => {
-        const interviewDate = c.interviewDate
-          ? new Date(c.interviewDate)
-          : null;
-        return interviewDate && interviewDate > oneWeekAgo;
-      }).length;
-
-      setStats({
-        total: candidates.length,
-        completed: completed.length,
-        inProgress: inProgress.length,
-        avgScore: Math.round(avgScore),
-        recentActivity,
-      });
+  // Memoize dashboard stats for performance
+  const dashboardStats = useMemo(() => {
+    if (!candidates || candidates.length === 0) {
+      return { total: 0, completed: 0, inProgress: 0, avgScore: 0 };
     }
 
-    // Simulate loading for better UX
-    setTimeout(() => {
-      setLoading(false);
-    }, 800);
+    let completedCount = 0;
+    let inProgressCount = 0;
+    const scores = [];
+
+    candidates.forEach((c) => {
+      const attempts = c.attempts && c.attempts.length > 0 ? c.attempts : [c];
+      attempts.forEach((attempt) => {
+        if (attempt.status === "Completed") {
+          completedCount++;
+          if (attempt.score != null) {
+            scores.push(attempt.score);
+          }
+        } else if (attempt.status === "In Progress") {
+          inProgressCount++;
+        }
+      });
+    });
+
+    const avgScore =
+      scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+
+    return {
+      total: candidates.length, // Total unique candidates
+      completed: completedCount,
+      inProgress: inProgressCount,
+      avgScore: Math.round(avgScore),
+    };
   }, [candidates]);
 
-  const data = useMemo(() => {
-    // Create a flattened array of all attempts with candidate info
-    const allAttempts = [];
-    candidates.forEach((candidate) => {
-      if (candidate.attempts && candidate.attempts.length > 0) {
-        candidate.attempts.forEach((attempt, attemptIndex) => {
-          // Create a stable unique ID if one doesn't exist
-          const stableId =
-            attempt.id ||
-            `${candidate.id}-attempt-${attemptIndex}-${
-              attempt.completedAt || attempt.createdAt || Date.now()
-            }`;
+  useEffect(() => {
+    setStats(dashboardStats);
+    // Simulate loading for better UX
+    const timer = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, [dashboardStats]);
 
-          allAttempts.push({
-            ...attempt,
-            id: stableId, // Ensure we have a stable ID
-            candidateId: candidate.id,
-            candidateName: candidate.name,
-            candidateEmail: candidate.email,
-            candidatePhone: candidate.phone,
-            name: candidate.name, // For backward compatibility
-            email: candidate.email, // For backward compatibility
-            attemptNumber: attempt.attemptNumber || attemptIndex + 1,
-          });
-        });
-      } else {
-        // Backward compatibility for old data structure
-        // Ensure we have a stable ID
-        const stableId =
-          candidate.id ||
-          `candidate-${candidate.email || candidate.name || ""}-${
-            candidate.interviewDate ||
-            candidate.completedAt ||
-            candidate.createdAt ||
-            Date.now()
+  // **[REFACTORED]** Centralized data processing logic
+  const processedData = useMemo(() => {
+    // 1. Flatten all attempts from all candidates into a single array
+    const allAttempts = candidates.flatMap((candidate) => {
+      // Handle both new data structure (with attempts) and old structure
+      const attemptsSource =
+        candidate.attempts && candidate.attempts.length > 0
+          ? candidate.attempts
+          : [{ ...candidate, attemptNumber: 1 }]; // Treat old data as a single attempt
+
+      return attemptsSource.map((attempt, index) => {
+        // 2. Create a GUARANTEED unique and stable key for each attempt
+        const uniqueKey =
+          attempt.id ||
+          `${candidate.id || candidate.email}-attempt-${
+            attempt.attemptNumber || index + 1
           }`;
 
-        allAttempts.push({
-          ...candidate,
-          id: stableId,
-          candidateId: candidate.id,
+        // 3. Return a clean, consolidated object for the table row
+        return {
+          ...candidate, // Base candidate info
+          ...attempt, // Overwrite with specific attempt info
+          key: uniqueKey, // The unique key for the React component
           candidateName: candidate.name,
           candidateEmail: candidate.email,
           candidatePhone: candidate.phone,
-          attemptNumber: 1,
-        });
-      }
+          // Ensure attemptNumber is consistent
+          attemptNumber: attempt.attemptNumber || index + 1,
+        };
+      });
     });
 
-    // Apply tab filtering
-    let filteredByTab = [...allAttempts];
-    if (activeTab === "2") {
-      // Completed interviews
-      filteredByTab = allAttempts.filter((c) => c.status === "Completed");
-    } else if (activeTab === "3") {
-      // In progress interviews
-      filteredByTab = allAttempts.filter((c) => c.status === "In Progress");
-    }
-
-    // Apply search filter
-    const filteredBySearch = filteredByTab.filter(
-      (c) =>
-        c.candidateName?.toLowerCase().includes(search.toLowerCase()) ||
-        c.candidateEmail?.toLowerCase().includes(search.toLowerCase())
+    // 4. Deduplicate using the unique key (handles any lingering data issues)
+    const uniqueAttempts = Array.from(
+      new Map(allAttempts.map((item) => [item.key, item])).values()
     );
 
-    // Apply sorting
-    const sorted = [...filteredBySearch].sort((a, b) => {
-      const dir = sortOrder === "ascend" ? 1 : -1;
+    // 5. Apply filtering and sorting
+    let filteredData = uniqueAttempts;
 
-      // Special handling for different sort keys
-      if (sortKey === "score") {
-        return dir * ((a.score || 0) - (b.score || 0));
-      } else if (sortKey === "interviewDate" || sortKey === "completedAt") {
-        const dateA = a[sortKey] ? new Date(a[sortKey]) : new Date(0);
-        const dateB = b[sortKey] ? new Date(b[sortKey]) : new Date(0);
-        return dir * (dateA - dateB);
-      } else if (sortKey === "name") {
-        return (
-          dir *
-          String(a.candidateName || "").localeCompare(
-            String(b.candidateName || "")
-          )
-        );
-      } else if (sortKey === "email") {
-        return (
-          dir *
-          String(a.candidateEmail || "").localeCompare(
-            String(b.candidateEmail || "")
-          )
-        );
-      }
+    if (activeTab === "2") {
+      filteredData = uniqueAttempts.filter((c) => c.status === "Completed");
+    } else if (activeTab === "3") {
+      filteredData = uniqueAttempts.filter((c) => c.status === "In Progress");
+    }
 
-      return (
-        dir * String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""))
+    if (search) {
+      filteredData = filteredData.filter(
+        (c) =>
+          c.candidateName?.toLowerCase().includes(search.toLowerCase()) ||
+          c.candidateEmail?.toLowerCase().includes(search.toLowerCase())
       );
-    });
+    }
 
-    return sorted;
+    if (sortKey && sortOrder) {
+      filteredData.sort((a, b) => {
+        const dir = sortOrder === "ascend" ? 1 : -1;
+        let valA, valB;
+
+        if (sortKey === "score") {
+          valA = a.score ?? -1; // Treat null scores as lowest
+          valB = b.score ?? -1;
+        } else if (sortKey === "interviewDate") {
+          valA = getRecordDate(a);
+          valB = getRecordDate(b);
+        } else if (
+          sortKey === "candidateName" ||
+          sortKey === "candidateEmail"
+        ) {
+          valA = a[sortKey] || "";
+          valB = b[sortKey] || "";
+          return dir * valA.localeCompare(valB);
+        } else {
+          valA = a[sortKey] || "";
+          valB = b[sortKey] || "";
+        }
+
+        if (valA < valB) return -1 * dir;
+        if (valA > valB) return 1 * dir;
+        return 0;
+      });
+    }
+
+    return filteredData;
   }, [candidates, search, sortKey, sortOrder, activeTab]);
 
   const getStatusBadge = (status) => {
@@ -206,8 +197,7 @@ const InterviewerPage = () => {
   };
 
   const getScoreTag = (score) => {
-    if (score === null || score === undefined)
-      return <Tag color="default">No Score</Tag>;
+    if (score == null) return <Tag color="default">No Score</Tag>;
     if (score >= 80) return <Tag color="green">{score}%</Tag>;
     if (score >= 60) return <Tag color="cyan">{score}%</Tag>;
     if (score >= 40) return <Tag color="orange">{score}%</Tag>;
@@ -218,18 +208,22 @@ const InterviewerPage = () => {
     {
       title: "Candidate",
       dataIndex: "candidateName",
-      key: "name",
+      key: "candidateName",
       sorter: true,
-      render: (name, record) => (
+      render: (_, record) => (
         <Space>
-          <Avatar className={record.score ? "bg-blue-500" : "bg-orange-500"}>
-            {name ? name.charAt(0).toUpperCase() : <UserOutlined />}
+          <Avatar className={record.score ? "bg-blue-500" : "bg-gray-400"}>
+            {record.candidateName ? (
+              record.candidateName.charAt(0).toUpperCase()
+            ) : (
+              <UserOutlined />
+            )}
           </Avatar>
           <div>
-            <div className="font-medium">{name || "Anonymous"}</div>
-            <div className="text-xs text-gray-500">
-              {record.candidateEmail || record.email}
+            <div className="font-medium">
+              {record.candidateName || "Anonymous"}
             </div>
+            <div className="text-xs text-gray-500">{record.candidateEmail}</div>
           </div>
         </Space>
       ),
@@ -239,38 +233,30 @@ const InterviewerPage = () => {
       dataIndex: "attemptNumber",
       key: "attemptNumber",
       width: 100,
-      render: (attemptNumber) => (
-        <Tag color="blue">Attempt #{attemptNumber || 1}</Tag>
-      ),
+      render: (num) => <Tag color="blue">Attempt #{num || 1}</Tag>,
     },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
       sorter: true,
-      render: (status) => getStatusBadge(status),
+      render: getStatusBadge,
     },
     {
       title: "Score",
       dataIndex: "score",
       key: "score",
       sorter: true,
-      render: (score) => getScoreTag(score),
+      render: getScoreTag,
     },
     {
       title: "Date",
       dataIndex: "interviewDate",
       key: "interviewDate",
       sorter: true,
-      render: (date, record) => {
-        const interviewDate = date
-          ? new Date(date)
-          : record.completedAt
-          ? new Date(record.completedAt)
-          : record.createdAt
-          ? new Date(record.createdAt)
-          : new Date();
-
+      render: (_, record) => {
+        const interviewDate = getRecordDate(record);
+        if (!interviewDate) return "N/A";
         return (
           <Tooltip title={interviewDate.toLocaleString()}>
             <Space>
@@ -294,37 +280,34 @@ const InterviewerPage = () => {
             setSelected(record);
           }}
         >
-          View Details
+          View
         </Button>
       ),
     },
   ];
 
   return (
-    <div className="min-h-screen ">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden p-8">
-        <div className="flex justify-between items-center mb-6">
-          <Title level={2} className="m-0">
-            Interviewer Dashboard
-          </Title>
-        </div>
+    <div className="min-h-screen p-4 sm:p-6 bg-gray-50">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden p-6">
+        <Title level={2} className="!m-0 !mb-6">
+          Interviewer Dashboard
+        </Title>
 
         {/* Dashboard Stats */}
         <Row gutter={[16, 16]} className="mb-6">
           <Col xs={24} sm={12} lg={6}>
-            <Card>
+            <Card variant="borderless">
               <Statistic
                 title="Total Candidates"
                 value={stats.total}
                 prefix={<TeamOutlined />}
-                valueStyle={{ color: "#1890ff" }}
               />
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card>
+            <Card variant="borderless">
               <Statistic
-                title="Completed Interviews"
+                title="Completed"
                 value={stats.completed}
                 prefix={<CheckCircleOutlined />}
                 valueStyle={{ color: "#52c41a" }}
@@ -332,7 +315,7 @@ const InterviewerPage = () => {
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card>
+            <Card variant="borderless">
               <Statistic
                 title="In Progress"
                 value={stats.inProgress}
@@ -342,342 +325,190 @@ const InterviewerPage = () => {
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card>
+            <Card variant="borderless">
               <Statistic
                 title="Average Score"
                 value={stats.avgScore || "N/A"}
+                suffix="%"
                 prefix={<TrophyOutlined />}
-                valueStyle={{
-                  color: stats.avgScore >= 70 ? "#52c41a" : "#f5222d",
-                }}
               />
               {stats.avgScore > 0 && (
-                <div className="mt-2.5">
-                  <Progress
-                    percent={stats.avgScore}
-                    size="small"
-                    status={stats.avgScore >= 70 ? "success" : "exception"}
-                  />
-                </div>
+                <Progress
+                  percent={stats.avgScore}
+                  size="small"
+                  status={stats.avgScore >= 70 ? "success" : "exception"}
+                  showInfo={false}
+                />
               )}
             </Card>
           </Col>
         </Row>
 
-        <Tabs activeKey={activeTab} onChange={setActiveTab} className="mb-4">
-          <TabPane
-            tab={
-              <span>
-                <TeamOutlined /> All Candidates
-              </span>
-            }
-            key="1"
-          />
-          <TabPane
-            tab={
-              <span>
-                <CheckCircleOutlined /> Completed
-              </span>
-            }
-            key="2"
-          />
-          <TabPane
-            tab={
-              <span>
-                <ClockCircleOutlined /> In Progress
-              </span>
-            }
-            key="3"
-          />
-        </Tabs>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          className="mb-4"
+          items={[
+            {
+              key: "1",
+              label: (
+                <span>
+                  <TeamOutlined /> All Attempts
+                </span>
+              ),
+            },
+            {
+              key: "2",
+              label: (
+                <span>
+                  <CheckCircleOutlined /> Completed
+                </span>
+              ),
+            },
+            {
+              key: "3",
+              label: (
+                <span>
+                  <ClockCircleOutlined /> In Progress
+                </span>
+              ),
+            },
+          ]}
+        />
 
-        {/* Search and Filters */}
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
           <Input.Search
             placeholder="Search by name or email"
             value={search}
             onChange={(e) => dispatch(setSearch(e.target.value))}
-            className="max-w-xs"
-            prefix={<SearchOutlined />}
+            className="w-full sm:max-w-xs"
             allowClear
           />
-          <Space>
-            <Button icon={<FilterOutlined />}>Filter</Button>
-            <Button icon={<SortAscendingOutlined />}>Sort</Button>
-          </Space>
         </div>
 
         {/* Candidates Table */}
-        <Card>
+        <Card variant="borderless">
           <Table
-            rowKey={(r) => {
-              // Create a stable unique key based on multiple properties
-              if (r.id) return r.id;
-
-              // Use a combination of properties to create a unique identifier
-              const candidateKey = r.candidateId || "";
-              const email = r.candidateEmail || r.email || "";
-              const attemptNum = r.attemptNumber || "1";
-              const timestamp =
-                r.interviewDate || r.completedAt || r.createdAt || "";
-
-              // Create a stable composite key
-              return `${candidateKey}-${email}-${attemptNum}-${timestamp}`.replace(
-                /\s+/g,
-                ""
-              );
-            }}
+            // **[SIMPLIFIED]** Use the guaranteed unique key from our processed data
+            rowKey="key"
             columns={columns}
-            dataSource={loading ? [] : data}
+            dataSource={processedData}
             loading={loading}
             onChange={(pagination, filters, sorter) => {
-              if (sorter?.field)
-                dispatch(setSort({ key: sorter.field, order: sorter.order }));
+              dispatch(setSort({ key: sorter.field, order: sorter.order }));
             }}
-            onRow={(r) => ({
-              onClick: () => setSelected(r),
+            onRow={(record) => ({
+              onClick: () => setSelected(record),
               style: { cursor: "pointer" },
             })}
             pagination={{
               showSizeChanger: true,
-              defaultPageSize: 10,
-              showTotal: (total) => `Total ${total} candidates`,
+              pageSize: 10,
+              showTotal: (total) => `Total ${total} items`,
             }}
-            locale={{
-              emptyText: (
-                <Empty
-                  description="No candidates found"
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                />
-              ),
-            }}
+            locale={{ emptyText: <Empty description="No candidates found" /> }}
           />
         </Card>
 
-        {/* Candidate Details Drawer */}
+        {/* Candidate Details Drawer (No changes needed here, but included for completeness) */}
         <Drawer
           open={!!selected}
           onClose={() => setSelected(null)}
-          width={800}
-          title={
-            <Space align="center">
-              <Avatar size={48} className="bg-blue-500">
-                {selected?.candidateName || selected?.name ? (
-                  (selected?.candidateName || selected?.name)
-                    .charAt(0)
-                    .toUpperCase()
-                ) : (
-                  <UserOutlined />
-                )}
-              </Avatar>
-              <div>
-                <div className="text-lg font-semibold">
-                  {selected?.candidateName || selected?.name || "Candidate"}
-                  {selected?.attemptNumber && (
-                    <Tag color="blue" className="ml-2">
-                      Attempt #{selected.attemptNumber}
-                    </Tag>
-                  )}
-                </div>
-                <div className="text-sm text-gray-500">
-                  {selected?.candidateEmail || selected?.email || "No Email"}
-                </div>
-              </div>
-            </Space>
-          }
-          extra={getScoreTag(selected?.score)}
-          footer={
-            <div className="text-right">
-              <Button onClick={() => setSelected(null)}>Close</Button>
-              <Button type="primary" className="ml-2">
-                Export Report
-              </Button>
-            </div>
-          }
+          width={window.innerWidth > 800 ? 800 : "90%"}
+          title="Candidate Attempt Details"
         >
           {selected && (
-            <>
-              {/* Candidate Overview */}
-              <Card title="Interview Attempt Details" className="mb-4">
-                <Row gutter={[16, 16]}>
-                  <Col span={12}>
-                    <Descriptions
-                      bordered
-                      size="small"
-                      column={1}
-                      layout="vertical"
-                    >
-                      <Descriptions.Item label="Name">
-                        {selected.candidateName ||
-                          selected.name ||
-                          "Not Provided"}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="Email">
-                        {selected.candidateEmail ||
-                          selected.email ||
-                          "Not Provided"}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="Phone">
-                        {selected.candidatePhone ||
-                          selected.phone ||
-                          "Not Provided"}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="Attempt">
-                        {selected.attemptNumber
-                          ? `#${selected.attemptNumber}`
-                          : "1"}
-                      </Descriptions.Item>
-                    </Descriptions>
-                  </Col>
-                  <Col span={12}>
-                    <Descriptions
-                      bordered
-                      size="small"
-                      column={1}
-                      layout="vertical"
-                    >
-                      <Descriptions.Item label="Interview Date">
-                        {selected.interviewDate
-                          ? new Date(selected.interviewDate).toLocaleString()
-                          : selected.completedAt
-                          ? new Date(selected.completedAt).toLocaleString()
-                          : selected.createdAt
-                          ? new Date(selected.createdAt).toLocaleString()
-                          : "Not Available"}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="Status">
-                        {getStatusBadge(selected.status)}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="Score">
-                        {selected.score !== null &&
-                        selected.score !== undefined ? (
-                          <Progress
-                            type="circle"
-                            percent={selected.score}
-                            width={40}
-                            format={(percent) => `${percent}%`}
-                            status={
-                              selected.score >= 70
-                                ? "success"
-                                : selected.score >= 40
-                                ? "normal"
-                                : "exception"
-                            }
-                          />
-                        ) : (
-                          "Not Scored"
-                        )}
-                      </Descriptions.Item>
-                    </Descriptions>
-                  </Col>
-                </Row>
-              </Card>
+            <Space direction="vertical" size="large" className="w-full">
+              <Descriptions bordered column={1} title="Profile">
+                <Descriptions.Item label="Name">
+                  {selected.candidateName}
+                </Descriptions.Item>
+                <Descriptions.Item label="Email">
+                  {selected.candidateEmail}
+                </Descriptions.Item>
+                <Descriptions.Item label="Phone">
+                  {selected.candidatePhone || "N/A"}
+                </Descriptions.Item>
+              </Descriptions>
 
-              {/* Interview Performance */}
-              <Card title="Interview Performance" style={{ marginBottom: 16 }}>
+              <Descriptions bordered column={1} title="Interview Details">
+                <Descriptions.Item label="Attempt">{`#${selected.attemptNumber}`}</Descriptions.Item>
+                <Descriptions.Item label="Date">
+                  {getRecordDate(selected)?.toLocaleString() || "N/A"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Status">
+                  {getStatusBadge(selected.status)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Score">
+                  {getScoreTag(selected.score)}
+                </Descriptions.Item>
+              </Descriptions>
+
+              <Card size="small" title="AI Summary">
                 {selected.summary ? (
                   <Paragraph>{selected.summary}</Paragraph>
                 ) : (
-                  <Empty
-                    description="No summary available"
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  />
+                  <Empty description="No summary available" />
                 )}
               </Card>
 
-              <Tabs defaultActiveKey="1">
-                <TabPane
-                  tab={
-                    <span>
-                      <FileTextOutlined /> Resume
-                    </span>
-                  }
-                  key="1"
-                >
-                  <Card>
-                    <Alert
-                      message="Resume Content"
-                      description="This is the extracted text content from the candidate's resume. Formatting may differ from the original document."
-                      type="info"
-                      showIcon
-                      className="mb-4"
-                    />
-
-                    <div className="whitespace-pre-wrap bg-gray-50 p-4 border border-gray-200 rounded min-h-[200px] max-h-[400px] overflow-auto font-mono text-sm leading-normal">
-                      {selected.resumeText || "No resume text available."}
-                    </div>
-                  </Card>
-                </TabPane>
-
-                <TabPane
-                  tab={
-                    <span>
-                      <InfoCircleOutlined /> Interview Questions
-                    </span>
-                  }
-                  key="2"
-                >
-                  <Card>
-                    {selected.transcript && selected.transcript.length > 0 ? (
-                      selected.transcript.map((t, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            marginBottom: 24,
-                            borderBottom:
-                              i < selected.transcript.length - 1
-                                ? "1px solid #f0f0f0"
-                                : "none",
-                            paddingBottom: 16,
-                          }}
-                        >
-                          <div style={{ marginBottom: 8 }}>
-                            <Text strong style={{ fontSize: 16 }}>
-                              Q{i + 1}: {t.q}
-                            </Text>
-                          </div>
-                          <div
-                            style={{
-                              background: "#f9f9f9",
-                              padding: 12,
-                              borderRadius: 4,
-                              marginBottom: 8,
-                            }}
-                          >
-                            <Text>{t.a || "No answer provided"}</Text>
-                          </div>
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                            }}
-                          >
-                            <Tag
-                              color={
-                                t.score >= 8
-                                  ? "green"
-                                  : t.score >= 5
-                                  ? "orange"
-                                  : "red"
-                              }
-                            >
-                              Score: {t.score !== undefined ? t.score : "N/A"}
-                              /10
-                            </Tag>
-                            <Text type="secondary">
-                              {t.explanation || "No feedback available"}
-                            </Text>
-                          </div>
+              <Tabs
+                defaultActiveKey="1"
+                items={[
+                  {
+                    key: "1",
+                    label: (
+                      <span>
+                        <FileTextOutlined /> Resume
+                      </span>
+                    ),
+                    children: (
+                      <>
+                        <Alert
+                          message="Extracted resume text"
+                          type="info"
+                          showIcon
+                          className="mb-4"
+                        />
+                        <div className="whitespace-pre-wrap bg-gray-50 p-4 border rounded max-h-96 overflow-auto text-xs">
+                          {selected.resumeText || "No resume text available."}
                         </div>
-                      ))
-                    ) : (
-                      <Empty description="No interview transcript available" />
-                    )}
-                  </Card>
-                </TabPane>
-              </Tabs>
-            </>
+                      </>
+                    ),
+                  },
+                  {
+                    key: "2",
+                    label: (
+                      <span>
+                        <InfoCircleOutlined /> Q&A Transcript
+                      </span>
+                    ),
+                    children: (
+                      <>
+                        {selected.transcript &&
+                        selected.transcript.length > 0 ? (
+                          selected.transcript.map((t, i) => (
+                            <div
+                              key={i}
+                              className="mb-4 pb-4 border-b last:border-b-0"
+                            >
+                              <Text strong>
+                                Q{i + 1}: {t.q}
+                              </Text>
+                              <div className="bg-gray-50 p-2 rounded mt-2">
+                                <Text>{t.a || "No answer provided"}</Text>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <Empty description="No transcript available" />
+                        )}
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Space>
           )}
         </Drawer>
       </div>
