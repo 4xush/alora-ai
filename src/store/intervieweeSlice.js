@@ -48,6 +48,7 @@ const initialState = {
   inProgress: false,
   paused: false,
   status: "idle", // idle | in_progress | completed
+  completionRatio: 0, // Percentage of questions answered (0-100)
   currentStep: 0, // 0: upload resume, 1: verify details, 2: take test, 3: view results
 
   // User data
@@ -71,6 +72,7 @@ const initialState = {
   // Results
   finalScore: null,
   finalSummary: "",
+  completionRatio: 0,
 
   // History
   pastInterviews: [], // Persisted array of completed interviews
@@ -479,6 +481,8 @@ const intervieweeSlice = createSlice({
         answers: [...state.answers],
         finalScore: state.finalScore,
         finalSummary: state.finalSummary,
+        completionRatio: state.completionRatio ||
+          (state.questions.length > 0 ? Math.round((state.answers.length / state.questions.length) * 100) : 0),
         status: "completed",
       };
 
@@ -626,9 +630,13 @@ const intervieweeSlice = createSlice({
       .addCase(scoreAnswers.fulfilled, (state, action) => {
         console.log("Answers scored successfully");
         state.loading = false;
-        const { perAnswer, totalScore, summary } = action.payload;
+        const { perAnswer, totalScore, summary, completionRatio } = action.payload;
         state.finalScore = totalScore;
         state.finalSummary = summary;
+
+        // Store completion ratio in state for possible UI display
+        state.completionRatio = completionRatio ||
+          (state.questions.length > 0 ? Math.round((state.answers.length / state.questions.length) * 100) : 0);
 
         // Update answers with scores
         if (Array.isArray(perAnswer)) {

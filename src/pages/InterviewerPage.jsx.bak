@@ -19,7 +19,6 @@ import {
   Progress,
   Empty,
   Alert,
-  Spin,
 } from "antd";
 import {
   SearchOutlined,
@@ -99,40 +98,30 @@ const InterviewerPage = () => {
   useEffect(() => {
     setStats(dashboardStats);
     // Simulate loading for better UX
-    const timer = setTimeout(() => setLoading(false), 1000);
+    const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
   }, [dashboardStats]);
 
   // **[REFACTORED]** Centralized data processing logic
   const processedData = useMemo(() => {
-    // Group attempts by candidate email to filter out duplicates
-    const candidateAttemptsMap = new Map();
-
-    // 1. Process candidates and collect their attempts
-    candidates.forEach((candidate) => {
-      const email = candidate.email;
-      if (!email) return; // Skip if no email (required for proper identification)
-
+    // 1. Flatten all attempts from all candidates into a single array
+    const allAttempts = candidates.flatMap((candidate) => {
       // Handle both new data structure (with attempts) and old structure
       const attemptsSource =
         candidate.attempts && candidate.attempts.length > 0
           ? candidate.attempts
           : [{ ...candidate, attemptNumber: 1 }]; // Treat old data as a single attempt
 
-      // If candidate isn't in our map yet, initialize their entry
-      if (!candidateAttemptsMap.has(email)) {
-        candidateAttemptsMap.set(email, []);
-      }
-
-      // Add all attempts to the candidate's array
-      attemptsSource.forEach((attempt, index) => {
+      return attemptsSource.map((attempt, index) => {
+        // 2. Create a GUARANTEED unique and stable key for each attempt
         const uniqueKey =
           attempt.id ||
           `${candidate.id || candidate.email}-attempt-${
             attempt.attemptNumber || index + 1
           }`;
 
-        candidateAttemptsMap.get(email).push({
+        // 3. Return a clean, consolidated object for the table row
+        return {
           ...candidate, // Base candidate info
           ...attempt, // Overwrite with specific attempt info
           key: uniqueKey, // The unique key for the React component
@@ -141,89 +130,11 @@ const InterviewerPage = () => {
           candidatePhone: candidate.phone,
           // Ensure attemptNumber is consistent
           attemptNumber: attempt.attemptNumber || index + 1,
-        });
+        };
       });
     });
 
-    // 2. Process each candidate's attempts to resolve the in-progress/completed issue
-    const allAttempts = [];
-    candidateAttemptsMap.forEach((attempts, email) => {
-      // Sort attempts by date to ensure we're working with the correct order
-      const sortedAttempts = attempts.sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-        return dateA - dateB; // Oldest first for proper sequencing
-      });
-
-      // Find pairs of in-progress and completed attempts that are related
-      // (likely the same interview that changed status)
-      const processedIds = new Set();
-      const finalAttempts = [];
-
-      // First pass: identify completed attempts and their in-progress counterparts
-      for (let i = 0; i < sortedAttempts.length; i++) {
-        const attempt = sortedAttempts[i];
-
-        // Skip if we've already processed this attempt
-        if (processedIds.has(attempt.id)) continue;
-
-        // If this is a completed attempt, look for a matching in-progress attempt
-        if (attempt.status === "Completed") {
-          // Look for an in-progress attempt with similar creation time (within 24 hours)
-          // or matching interview ID pattern
-          const matchingInProgress = sortedAttempts.find(
-            (a) =>
-              a.status === "In Progress" &&
-              !processedIds.has(a.id) &&
-              // Same base ID (if the ID format follows a pattern we can match)
-              ((attempt.id &&
-                a.id &&
-                attempt.id.split("_")[0] === a.id.split("_")[0]) ||
-                // Creation dates within 24 hours
-                (attempt.createdAt &&
-                  a.createdAt &&
-                  Math.abs(
-                    new Date(attempt.createdAt) - new Date(a.createdAt)
-                  ) < 86400000))
-          );
-
-          if (matchingInProgress) {
-            // We found a matching pair - keep the completed one but use the attempt number from in-progress
-            processedIds.add(attempt.id);
-            processedIds.add(matchingInProgress.id);
-
-            // Use the lower attempt number to maintain consistency
-            const attemptNumber = Math.min(
-              attempt.attemptNumber || Number.MAX_SAFE_INTEGER,
-              matchingInProgress.attemptNumber || Number.MAX_SAFE_INTEGER
-            );
-
-            finalAttempts.push({
-              ...attempt,
-              attemptNumber: attemptNumber,
-            });
-          } else {
-            // No match found, keep as is
-            processedIds.add(attempt.id);
-            finalAttempts.push(attempt);
-          }
-        }
-      }
-
-      // Second pass: add any remaining unmatched in-progress attempts
-      for (let i = 0; i < sortedAttempts.length; i++) {
-        const attempt = sortedAttempts[i];
-        if (!processedIds.has(attempt.id)) {
-          finalAttempts.push(attempt);
-          processedIds.add(attempt.id);
-        }
-      }
-
-      // Add the processed attempts to our final collection
-      allAttempts.push(...finalAttempts);
-    });
-
-    // 3. Deduplicate using the unique key (handles any lingering data issues)
+    // 4. Deduplicate using the unique key (handles any lingering data issues)
     const uniqueAttempts = Array.from(
       new Map(allAttempts.map((item) => [item.key, item])).values()
     );
@@ -375,23 +286,9 @@ const InterviewerPage = () => {
     },
   ];
 
-  // Show loading spinner when data is loading
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <Spin size="large" />
-          <div className="mt-4">
-            <Text className="text-gray-600">Loading dashboard...</Text>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header Section */}
+      {/* Header Section - Styled to match interviewee dashboard */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
@@ -400,15 +297,17 @@ const InterviewerPage = () => {
                 Interviewer Dashboard
               </Title>
               <Text className="text-gray-600">
-                Track candidate interviews and review their performance
+                Monitor candidate performance and review interview results
               </Text>
             </div>
           </div>
         </div>
       </div>
-
+      
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden p-6">
+
         {/* Dashboard Stats */}
         <Row gutter={[16, 16]} className="mb-6">
           <Col xs={24} sm={12} lg={6}>

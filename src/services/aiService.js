@@ -275,15 +275,65 @@ Return ONLY valid JSON without explanation or markdown formatting.`;
   },
 
   async scoreAnswers({ questions, answers }) {
+    // Calculate completion ratio - percentage of questions that were answered
+    const totalQuestions = questions.length;
+    const answeredQuestions = answers.length;
+    const completionRatio = totalQuestions > 0 ? answeredQuestions / totalQuestions : 0;
+
+    // Create a map of answers by questionId for easier lookup
+    const answersMap = {};
+    answers.forEach(answer => {
+      if (answer.questionId) {
+        answersMap[answer.questionId] = answer;
+      }
+    });
+
+    // Function to apply completion penalty to the raw score
+    const applyCompletionPenalty = (rawScore) => {
+      // Apply a scaled penalty based on completion ratio
+      // If completionRatio is 1.0 (100%), no penalty
+      // If completionRatio is 0.0 (0%), score is capped at a very low value
+
+      // This formula ensures:
+      // - 100% completion: full score (no penalty)
+      // - 75% completion: penalty of about 20% 
+      // - 50% completion: penalty of about 40%
+      // - 25% completion: penalty of about 70%
+      // - <10% completion: very significant penalty (>90%)
+
+      const completionPenaltyFactor = Math.pow(completionRatio, 1.5);
+      const adjustedScore = Math.round(rawScore * completionPenaltyFactor);
+
+      return adjustedScore;
+    };
+
+    // Non-AI fallback scoring logic
     if (!genAI) {
-      // Naive heuristic scoring fallback
+      // Naive heuristic scoring fallback 
       const perAnswer = answers.map((a) => ({ score: Math.min(10, Math.max(0, Math.round((a.answer?.length || 0) / 50))), explanation: 'Heuristic length-based score.' }));
-      const total = Math.round((perAnswer.reduce((s, a) => s + a.score, 0) / (answers.length * 10)) * 100) || 0;
-      return { perAnswer, totalScore: total, summary: 'Auto-generated summary (fallback). Candidate provided answers evaluated heuristically.' };
+      const rawTotal = Math.round((perAnswer.reduce((s, a) => s + a.score, 0) / (Math.max(1, answers.length) * 10)) * 100) || 0;
+
+      // Apply completion penalty
+      const adjustedTotal = applyCompletionPenalty(rawTotal);
+
+      // Add explanation about completion penalty if applicable
+      let summary = 'Auto-generated summary (fallback). Candidate provided answers evaluated heuristically.';
+      if (completionRatio < 1.0) {
+        summary += ` Only ${Math.round(completionRatio * 100)}% of questions were answered, which reduced the final score.`;
+      }
+
+      return {
+        perAnswer,
+        totalScore: adjustedTotal,
+        summary,
+        completionRatio: Math.round(completionRatio * 100)
+      };
     }
 
+    // AI-based scoring
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const prompt = `Strict JSON only. Score each answer 0-10 with explanation. Also return final totalScore(0-100) and 3-4 line summary.
+Important: Consider that the candidate answered ${answeredQuestions} out of ${totalQuestions} questions (${Math.round(completionRatio * 100)}% completion rate).
 Format: { perAnswer:[{score, explanation}], totalScore, summary }
 Questions:${JSON.stringify(questions)}
 Answers:${JSON.stringify(answers)}`;
@@ -293,14 +343,45 @@ Answers:${JSON.stringify(answers)}`;
         const r = await model.generateContent(prompt);
         const text = r.response.text();
         const json = JSON.parse(text.replace(/```json|```/g, ''));
-        if (json?.perAnswer && typeof json.totalScore === 'number') return json;
+
+        if (json?.perAnswer && typeof json.totalScore === 'number') {
+          // Apply completion penalty to the AI-provided score
+          const rawScore = json.totalScore;
+          const adjustedScore = applyCompletionPenalty(rawScore);
+
+          // Update the summary to reflect the completion penalty if needed
+          let updatedSummary = json.summary || '';
+          if (completionRatio < 1.0 && adjustedScore < rawScore) {
+            updatedSummary += ` Note: Score adjusted from ${rawScore} to ${adjustedScore} because only ${Math.round(completionRatio * 100)}% of questions were answered.`;
+          }
+
+          return {
+            ...json,
+            totalScore: adjustedScore,
+            summary: updatedSummary,
+            completionRatio: Math.round(completionRatio * 100)
+          };
+        }
       } catch (e) {
         await sleep(300 * (attempt + 1));
       }
     }
-    // Fallback
+
+    // Fallback if AI fails
     const perAnswer = answers.map((a) => ({ score: 5, explanation: 'Fallback score.' }));
-    const total = Math.round((perAnswer.reduce((s, a) => s + a.score, 0) / (answers.length * 10)) * 100) || 0;
-    return { perAnswer, totalScore: total, summary: 'Fallback summary due to AI unavailability.' };
+    const rawTotal = Math.round((perAnswer.reduce((s, a) => s + a.score, 0) / (Math.max(1, answers.length) * 10)) * 100) || 0;
+    const adjustedTotal = applyCompletionPenalty(rawTotal);
+
+    let summary = 'Fallback summary due to AI unavailability.';
+    if (completionRatio < 1.0) {
+      summary += ` Only ${Math.round(completionRatio * 100)}% of questions were answered, which reduced the final score.`;
+    }
+
+    return {
+      perAnswer,
+      totalScore: adjustedTotal,
+      summary,
+      completionRatio: Math.round(completionRatio * 100)
+    };
   },
 };

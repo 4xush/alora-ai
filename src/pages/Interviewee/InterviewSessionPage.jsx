@@ -95,7 +95,7 @@ const InterviewSessionPage = () => {
         <Button
           onClick={handleBackToDashboard}
           icon={<Home className="w-4 h-4" />}
-          size="large"
+          size="medium"
           className="shadow-lg hover:shadow-xl transition-shadow"
           danger
         >

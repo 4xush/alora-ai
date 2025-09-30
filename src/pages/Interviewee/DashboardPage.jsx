@@ -516,17 +516,30 @@ const DashboardPage = () => {
                                   }
                                 })()}
                               </Text>
-                              <Tag
-                                color={
-                                  interview.finalScore >= 80
-                                    ? "success"
-                                    : interview.finalScore >= 60
-                                    ? "warning"
-                                    : "error"
-                                }
-                              >
-                                Score: {interview.finalScore}
-                              </Tag>
+                              <div style={{ display: "flex", gap: "8px" }}>
+                                <Tag
+                                  color={
+                                    interview.finalScore >= 80
+                                      ? "success"
+                                      : interview.finalScore >= 60
+                                      ? "warning"
+                                      : "error"
+                                  }
+                                >
+                                  Score: {interview.finalScore}
+                                </Tag>
+                                {interview.completionRatio !== undefined && (
+                                  <Tag
+                                    color={
+                                      interview.completionRatio === 100
+                                        ? "blue"
+                                        : "orange"
+                                    }
+                                  >
+                                    {interview.completionRatio}% Completed
+                                  </Tag>
+                                )}
+                              </div>
                             </div>
                           }
                           description={

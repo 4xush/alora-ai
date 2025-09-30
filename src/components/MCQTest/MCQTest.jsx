@@ -266,217 +266,144 @@ const MCQTest = ({ onAnswer }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Top Navigation Bar */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">OA</span>
-                </div>
-                <span className="text-lg font-semibold text-gray-800 hidden sm:block">
-                  Online Assessment
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 bg-blue-50 rounded-lg">
-                <span className="text-sm text-gray-600">Question</span>
-                <span className="text-sm font-semibold text-gray-900">
-                  {currentQuestionIndex + 1}/{questions.length}
-                </span>
-              </div>
-
-              <div
-                className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg ${
-                  timeRemaining <= 10 ? "bg-red-50" : "bg-gray-50"
-                }`}
-              >
-                <ClockCircleOutlined
-                  className={
-                    timeRemaining <= 10 ? "text-red-500" : "text-gray-500"
-                  }
-                />
-                <span
-                  className={`text-sm font-mono font-semibold ${
-                    timeRemaining <= 10 ? "text-red-600" : "text-gray-700"
-                  }`}
-                >
-                  {formatTime(timeRemaining)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Progress Bar */}
       <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Progress
-            percent={progress}
-            showInfo={false}
-            strokeColor={{
-              "0%": "#7c3aed",
-              "100%": "#4f46e5",
-            }}
-            className="mb-0"
-            strokeWidth={3}
-          />
-        </div>
+        <Progress
+          percent={progress}
+          showInfo={false}
+          strokeColor={{
+            "0%": "#7c3aed",
+            "100%": "#4f46e5",
+          }}
+          className="mb-0"
+          strokeWidth={4}
+        />
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Question Panel - Takes more space on desktop */}
-          <div className="lg:col-span-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              {/* Question Header */}
-              <div className="px-6 py-4 bg-gradient-to-r from-violet-50 to-indigo-50 border-b border-gray-200">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center space-x-3">
-                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm text-violet-600 font-semibold text-sm">
-                      {currentQuestionIndex + 1}
-                    </span>
-                    <span className="text-gray-700 font-medium">
-                      Multiple Choice Question
-                    </span>
-                  </div>
-                  <Tag
-                    color={getDifficultyColor(currentQuestion.level)}
-                    className="m-0"
-                  >
-                    {currentQuestion.level || "Medium"}
-                  </Tag>
+      <div className="w-full px-6 py-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {/* Question Header */}
+          <div className="px-6 py-3 bg-gradient-to-r from-violet-50 to-indigo-50 border-b border-gray-200">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center space-x-3">
+                <span className="flex items-center justify-center w-9 h-9 rounded-full bg-white shadow-sm text-violet-600 font-semibold">
+                  {currentQuestionIndex + 1}
+                </span>
+                <div className="flex flex-col">
+                  <span className="text-gray-900 font-semibold">
+                    Question {currentQuestionIndex + 1} of {questions.length}
+                  </span>
+                  <span className="text-gray-600 text-sm">
+                    Multiple Choice Question
+                  </span>
                 </div>
               </div>
 
-              {/* Question Content */}
-              <div className="px-6 py-6">
-                <Title level={4} className="text-gray-900 mb-4 leading-relaxed">
-                  {currentQuestion.text}
-                </Title>
+              <div className="flex items-center space-x-3">
+                <Tag
+                  color={getDifficultyColor(currentQuestion.level)}
+                  className="m-0"
+                >
+                  {currentQuestion.level || "Medium"}
+                </Tag>
 
-                {currentQuestion.context && (
-                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                    <Text className="text-sm text-gray-700">
-                      <strong className="text-gray-900">Context:</strong>{" "}
-                      {currentQuestion.context}
-                    </Text>
-                  </div>
-                )}
-
-                {/* Answer Options */}
-                <div className="mt-6">
-                  <Text className="text-sm font-medium text-gray-700 mb-3 block">
-                    Select the correct answer:
-                  </Text>
-
-                  <Radio.Group
-                    onChange={(e) => setSelectedOption(e.target.value)}
-                    value={selectedOption}
-                    className="w-full"
-                    disabled={paused || isSubmitting}
-                  >
-                    <div className="space-y-3">
-                      {currentQuestion.options?.map((option, index) => (
-                        <div
-                          key={`${questionKey}-option-${index}`}
-                          className={`relative transition-all duration-200 ${
-                            selectedOption === option
-                              ? "ring-2 ring-violet-500 bg-violet-50 rounded-lg"
-                              : "hover:bg-gray-50"
-                          }`}
-                        >
-                          <Radio
-                            value={option}
-                            className="w-full p-4 border border-gray-200 rounded-lg flex items-start m-0"
-                          >
-                            <div className="flex items-start w-full">
-                              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-medium mr-3 mt-0.5 flex-shrink-0">
-                                {String.fromCharCode(65 + index)}
-                              </span>
-                              <span className="flex-1 text-gray-800 leading-relaxed">
-                                {option}
-                              </span>
-                            </div>
-                          </Radio>
-                        </div>
-                      ))}
-                    </div>
-                  </Radio.Group>
-                </div>
-
-                {/* Warning Alert */}
-                {timeRemaining <= 10 && !selectedOption && (
-                  <Alert
-                    message="Time running out!"
-                    description="Please select an answer or the question will be auto-submitted."
-                    type="warning"
-                    showIcon
-                    className="mt-6"
+                <div
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+                    timeRemaining <= 10 ? "bg-red-50" : "bg-gray-100"
+                  }`}
+                >
+                  <ClockCircleOutlined
+                    className={
+                      timeRemaining <= 10 ? "text-red-500" : "text-gray-600"
+                    }
                   />
-                )}
+                  <span
+                    className={`text-sm font-mono font-semibold ${
+                      timeRemaining <= 10 ? "text-red-600" : "text-gray-800"
+                    }`}
+                  >
+                    {formatTime(timeRemaining)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Side Panel - Info and Actions */}
-          <div className="lg:col-span-4 space-y-4">
-            {/* Question Info Card */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4">
-                Assessment Progress
-              </h3>
+          {/* Question Content */}
+          <div className="px-6 py-4">
+            <Title level={4} className="text-gray-900 mb-4 leading-snug">
+              {currentQuestion.text}
+            </Title>
 
-              <div className="space-y-4">
-                <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-                  <span className="text-sm text-gray-600">Total Questions</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {questions.length}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-                  <span className="text-sm text-gray-600">
-                    Current Question
-                  </span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {currentQuestionIndex + 1}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-                  <span className="text-sm text-gray-600">Remaining</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {questions.length - currentQuestionIndex - 1}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Progress</span>
-                  <span className="text-sm font-semibold text-violet-600">
-                    {progress}%
-                  </span>
-                </div>
+            {currentQuestion.context && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <Text className="text-sm text-gray-700">
+                  <strong className="text-gray-900">Context:</strong>{" "}
+                  {currentQuestion.context}
+                </Text>
               </div>
+            )}
+
+            {/* Answer Options */}
+            <div className="mt-4">
+              <Text className="text-sm font-medium text-gray-700 mb-3 block">
+                Select the correct answer:
+              </Text>
+
+              <Radio.Group
+                onChange={(e) => setSelectedOption(e.target.value)}
+                value={selectedOption}
+                className="w-full"
+                disabled={paused || isSubmitting}
+              >
+                <div className="space-y-2">
+                  {currentQuestion.options?.map((option, index) => (
+                    <div
+                      key={`${questionKey}-option-${index}`}
+                      className="relative transition-all duration-200"
+                    >
+                      <Radio
+                        value={option}
+                        className="w-full p-3 border border-gray-200 rounded-lg flex items-start m-0 hover:border-gray-300"
+                      >
+                        <div className="flex items-start w-full">
+                          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-medium mr-3 mt-0.5 flex-shrink-0">
+                            {String.fromCharCode(65 + index)}
+                          </span>
+                          <span className="flex-1 text-gray-800 leading-snug">
+                            {option}
+                          </span>
+                        </div>
+                      </Radio>
+                    </div>
+                  ))}
+                </div>
+              </Radio.Group>
             </div>
 
-            {/* Action Buttons */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <div className="space-y-3">
+            {/* Warning Alert */}
+            {timeRemaining <= 10 && !selectedOption && (
+              <Alert
+                message="Time running out!"
+                description="Please select an answer."
+                type="warning"
+                showIcon
+                className="mt-3 text-xs py-1"
+              />
+            )}
+
+            {/* Action Buttons - Moved Below Options */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-end gap-3">
                 <Button
                   type="primary"
                   size="middle"
-                  block
                   onClick={() => handleSubmitAnswer(false, false)}
                   disabled={!selectedOption || paused || isSubmitting}
                   loading={isSubmitting}
                   icon={isLastQuestion ? <CheckOutlined /> : <RightOutlined />}
-                  className="h-10 font-medium"
+                  className="px-5 font-medium"
                 >
                   {isSubmitting
                     ? "Submitting..."
@@ -484,46 +411,23 @@ const MCQTest = ({ onAnswer }) => {
                     ? "Finish Assessment"
                     : "Next Question"}
                 </Button>
-
-                <Button
+                                <Button
                   danger
                   size="middle"
-                  block
                   onClick={handleTestNextQuestion}
                   disabled={isLastQuestion || paused || isSubmitting}
-                  className="h-9 text-xs"
+                  className="px-5"
                 >
                   Skip Question
                 </Button>
               </div>
 
-              {selectedOption ? (
-                <div className="mt-4 flex items-center justify-center text-green-600 text-sm">
+              {selectedOption && (
+                <div className="mt-3 flex items-center justify-end text-green-600 text-sm">
                   <CheckOutlined className="mr-1" />
                   <span>Answer selected</span>
                 </div>
-              ) : (
-                <div className="mt-4 text-center text-gray-500 text-sm">
-                  Please select an answer
-                </div>
               )}
-            </div>
-
-            {/* Instructions */}
-            <div className="bg-blue-50 rounded-xl border border-blue-100 p-5">
-              <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
-                <span className="mr-2">💡</span> Instructions
-              </h3>
-              <ul className="text-xs text-blue-800 space-y-1.5 leading-relaxed">
-                <li>• Select the most appropriate answer</li>
-                <li>• Auto-submits when timer expires</li>
-                <li>• Cannot change answer after submission</li>
-                {isLastQuestion && (
-                  <li className="font-semibold">
-                    • This is the final question!
-                  </li>
-                )}
-              </ul>
             </div>
           </div>
         </div>
