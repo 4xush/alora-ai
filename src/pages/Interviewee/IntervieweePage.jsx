@@ -5,6 +5,7 @@ import DashboardPage from "./DashboardPage";
 import PreInterviewPage from "./PreInterviewPage";
 import InterviewSessionPage from "./InterviewSessionPage";
 import SummaryPage from "./SummaryPage";
+import SettingsPage from "./SettingsPage"; // NEW: Import settings page
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import useInterviewNavigation from "../../hooks/interviewee/useInterviewNavigation";
 import useInterviewPersistence from "../../hooks/interviewee/useInterviewPersistence";
@@ -34,6 +35,8 @@ const IntervieweePage = ({ step = "dashboard" }) => {
         return <InterviewSessionPage />;
       case "summary":
         return <SummaryPage />;
+      case "settings": // NEW: Handle settings step
+        return <SettingsPage />;
       default:
         console.warn(`Unknown step: ${step}, falling back to dashboard`);
         return <DashboardPage />;
@@ -54,7 +57,13 @@ const IntervieweePage = ({ step = "dashboard" }) => {
 };
 
 IntervieweePage.propTypes = {
-  step: PropTypes.oneOf(["dashboard", "pre-interview", "interview", "summary"]),
+  step: PropTypes.oneOf([
+    "dashboard",
+    "pre-interview",
+    "interview",
+    "summary",
+    "settings",
+  ]), // NEW: Added settings
 };
 
 export default IntervieweePage;
