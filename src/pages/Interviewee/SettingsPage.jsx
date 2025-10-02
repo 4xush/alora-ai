@@ -35,8 +35,7 @@ const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 
 /**
- * Enhanced Professional Settings Page
- * Now includes meaningful settings that actually impact the interview
+ * Enhanced Professional Settings Page with REAL-TIME UPDATES
  */
 const SettingsPage = () => {
   const dispatch = useDispatch();
@@ -44,9 +43,19 @@ const SettingsPage = () => {
   const [form] = Form.useForm();
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Get current settings from Redux (enhanced)
+  // Get current settings from Redux
   const { duration, role, complexity, focusArea } = useSelector(
     (state) => state.settings
+  );
+
+  // NEW: Real-time state for immediate UI updates
+  const [currentDuration, setCurrentDuration] = useState(duration);
+  const [currentRole, setCurrentRole] = useState(role);
+  const [currentComplexity, setCurrentComplexity] = useState(
+    complexity || "balanced"
+  );
+  const [currentFocusArea, setCurrentFocusArea] = useState(
+    focusArea || "full-coverage"
   );
 
   // Enhanced role options
@@ -195,14 +204,35 @@ const SettingsPage = () => {
 
   const handleReset = () => {
     form.setFieldsValue({ duration, role, complexity, focusArea });
+    setCurrentDuration(duration);
+    setCurrentRole(role);
+    setCurrentComplexity(complexity || "balanced");
+    setCurrentFocusArea(focusArea || "full-coverage");
     setHasChanges(false);
     message.info("Settings reset to current values");
   };
 
-  const handleFormChange = () => {
+  // FIXED: Real-time form change handler
+  const handleFormChange = (changedValues, allValues) => {
+    console.log("🔧 Form changed:", changedValues); // ADD THIS
     setHasChanges(true);
-  };
 
+    // Update real-time state for immediate UI feedback
+    if (changedValues.duration !== undefined) {
+      console.log("📊 Updating currentDuration to:", changedValues.duration);
+      setCurrentDuration(changedValues.duration);
+    }
+    if (changedValues.role !== undefined) {
+      setCurrentRole(changedValues.role);
+    }
+    if (changedValues.complexity !== undefined) {
+      setCurrentComplexity(changedValues.complexity);
+    }
+    if (changedValues.focusArea !== undefined) {
+      setCurrentFocusArea(changedValues.focusArea);
+    }
+  };
+  console.log("🎨 Rendering with currentDuration:", currentDuration);
   const handleBackToDashboard = () => {
     if (hasChanges) {
       message.warning(
@@ -256,7 +286,7 @@ const SettingsPage = () => {
             complexity: complexity || "balanced",
             focusArea: focusArea || "full-coverage",
           }}
-          onValuesChange={handleFormChange}
+          onValuesChange={handleFormChange} // FIXED: Now updates real-time state
           className="space-y-6"
         >
           {/* Core Interview Configuration */}
@@ -318,7 +348,7 @@ const SettingsPage = () => {
                 />
               </div>
 
-              {/* Duration Setting - Now with actual impact */}
+              {/* Duration Setting - FIXED with real-time updates */}
               <div>
                 <Form.Item
                   name="duration"
@@ -344,6 +374,12 @@ const SettingsPage = () => {
                       step={5}
                       min={5}
                       max={30}
+                      onChange={(value) => {
+                        console.log("🎯 SLIDER CHANGED TO:", value);
+                        setCurrentDuration(value); // Update real-time state
+                        setHasChanges(true); // Enable save button
+                        form.setFieldsValue({ duration: value }); // Update form value
+                      }}
                       tooltip={{
                         formatter: (value) =>
                           `${value} minutes → ${getQuestionCount(
@@ -351,11 +387,10 @@ const SettingsPage = () => {
                           )} questions`,
                       }}
                     />
+                    {/* FIXED: Now uses currentDuration for real-time updates */}
                     <div className="text-center p-3 bg-blue-50 rounded-lg">
                       <Text strong className="text-blue-800">
-                        {getQuestionDistribution(
-                          form.getFieldValue("duration") || duration
-                        )}
+                        {getQuestionDistribution(currentDuration)}
                       </Text>
                     </div>
                   </div>
@@ -451,14 +486,14 @@ const SettingsPage = () => {
             </div>
           </Card>
 
-          {/* Current Configuration Preview */}
+          {/* Current Configuration Preview - FIXED with real-time updates */}
           <Card className="shadow-sm border border-gray-200 bg-gradient-to-r from-violet-50 to-indigo-50">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center">
                 <SettingOutlined className="text-violet-600" />
               </div>
               <Title level={4} className="mb-0">
-                Interview Preview
+                Interview Preview (Live Update)
               </Title>
             </div>
 
@@ -466,7 +501,7 @@ const SettingsPage = () => {
               <div className="text-center p-3 bg-white/50 rounded-lg">
                 <BranchesOutlined className="text-blue-600 text-lg mb-2 block" />
                 <Text strong className="block">
-                  {form.getFieldValue("role") || role}
+                  {currentRole}
                 </Text>
                 <Text className="text-xs text-gray-600">Role</Text>
               </div>
@@ -474,11 +509,10 @@ const SettingsPage = () => {
               <div className="text-center p-3 bg-white/50 rounded-lg">
                 <ClockCircleOutlined className="text-orange-600 text-lg mb-2 block" />
                 <Text strong className="block">
-                  {getQuestionCount(form.getFieldValue("duration") || duration)}{" "}
-                  Questions
+                  {getQuestionCount(currentDuration)} Questions
                 </Text>
                 <Text className="text-xs text-gray-600">
-                  {form.getFieldValue("duration") || duration} minutes
+                  {currentDuration} minutes
                 </Text>
               </div>
 
@@ -486,11 +520,7 @@ const SettingsPage = () => {
                 <Layers className="w-4 h-4 text-purple-600 mx-auto mb-2" />
                 <Text strong className="block">
                   {complexityModes
-                    .find(
-                      (m) =>
-                        m.value ===
-                        (form.getFieldValue("complexity") || complexity)
-                    )
+                    .find((m) => m.value === currentComplexity)
                     ?.label.replace(/[🎯📚🔥📄]/g, "")
                     .trim()}
                 </Text>
@@ -500,13 +530,7 @@ const SettingsPage = () => {
               <div className="text-center p-3 bg-white/50 rounded-lg">
                 <Target className="w-4 h-4 text-green-600 mx-auto mb-2" />
                 <Text strong className="block">
-                  {
-                    focusAreas.find(
-                      (f) =>
-                        f.value ===
-                        (form.getFieldValue("focusArea") || focusArea)
-                    )?.label
-                  }
+                  {focusAreas.find((f) => f.value === currentFocusArea)?.label}
                 </Text>
                 <Text className="text-xs text-gray-600">Focus</Text>
               </div>
