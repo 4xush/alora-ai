@@ -81,7 +81,12 @@ const AppLayout = ({ userRole = "interviewee" }) => {
 
       {/* Main Content */}
       <Layout>
-        <Content className="container mx-auto">
+        <Content
+          className="container mx-auto"
+          role="main"
+          id="main-content"
+          tabIndex="-1"
+        >
           <Outlet />
         </Content>
       </Layout>

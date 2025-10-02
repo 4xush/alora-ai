@@ -4,11 +4,18 @@ import LandingPage from "./pages/LandingPage.jsx";
 import AppLayout from "./layouts/AppLayout.jsx";
 import IntervieweePage from "./pages/Interviewee/IntervieweePage";
 import InterviewerPage from "./pages/InterviewerPage.jsx";
-import { RouteLoader, LoadingOverlay } from "./components/RouteLoader";
+import {
+  RouteLoader,
+  LoadingOverlay,
+  ScrollToTop,
+  FocusManager,
+} from "./components/RouteLoader";
 
 const App = () => {
   return (
     <RouteLoader>
+      <ScrollToTop />
+      <FocusManager />
       <LoadingOverlay />
       <Routes>
         {/* Public routes */}
