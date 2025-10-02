@@ -6,7 +6,6 @@ import {
   Slider,
   Button,
   Typography,
-  Radio,
   Alert,
   Tag,
   message,
@@ -104,22 +103,30 @@ const SettingsPage = () => {
       value: "balanced",
       label: "🎯 Balanced Mix",
       description: "Equal focus on fundamentals and advanced concepts",
+      color: "blue",
+      icon: "🎯",
     },
     {
       value: "fundamentals",
       label: "📚 Fundamentals Focus",
       description:
         "Core concepts, basic implementations, foundational knowledge",
+      color: "green",
+      icon: "📚",
     },
     {
       value: "advanced",
       label: "🔥 Advanced Concepts",
       description: "Complex patterns, architecture, optimization, edge cases",
+      color: "orange",
+      icon: "🔥",
     },
     {
       value: "resume-focused",
       label: "📄 Resume Deep Dive",
       description: "Questions tailored specifically to your resume experience",
+      color: "purple",
+      icon: "📄",
     },
   ];
 
@@ -129,26 +136,31 @@ const SettingsPage = () => {
       value: "full-coverage",
       label: "Full Coverage",
       description: "Balanced coverage of all technical areas",
+      color: "blue",
     },
     {
       value: "frameworks",
       label: "Frameworks & Libraries",
       description: "Focus on specific frameworks and their ecosystems",
+      color: "green",
     },
     {
       value: "algorithms",
       label: "Algorithms & Data Structures",
       description: "Problem-solving, complexity analysis, data structures",
+      color: "purple",
     },
     {
       value: "system-design",
       label: "System Design",
       description: "Architecture, scalability, distributed systems",
+      color: "orange",
     },
     {
       value: "practical",
       label: "Practical Implementation",
       description: "Real-world scenarios, debugging, best practices",
+      color: "cyan",
     },
   ];
 
@@ -191,11 +203,6 @@ const SettingsPage = () => {
       message.success(
         "Settings saved successfully! Your next interview will use these preferences."
       );
-
-      // Auto-navigate back to dashboard after short delay
-      setTimeout(() => {
-        navigate("/interviewee/dashboard");
-      }, 1500);
     } catch (error) {
       console.error("Validation failed:", error);
       message.error("Please fix the form errors before saving.");
@@ -214,12 +221,10 @@ const SettingsPage = () => {
 
   // FIXED: Real-time form change handler
   const handleFormChange = (changedValues, allValues) => {
-    console.log("🔧 Form changed:", changedValues); // ADD THIS
     setHasChanges(true);
 
     // Update real-time state for immediate UI feedback
     if (changedValues.duration !== undefined) {
-      console.log("📊 Updating currentDuration to:", changedValues.duration);
       setCurrentDuration(changedValues.duration);
     }
     if (changedValues.role !== undefined) {
@@ -232,7 +237,6 @@ const SettingsPage = () => {
       setCurrentFocusArea(changedValues.focusArea);
     }
   };
-  console.log("🎨 Rendering with currentDuration:", currentDuration);
   const handleBackToDashboard = () => {
     if (hasChanges) {
       message.warning(
@@ -268,6 +272,7 @@ const SettingsPage = () => {
               icon={<ArrowLeftOutlined />}
               onClick={handleBackToDashboard}
               className="flex items-center"
+              size="large"
             >
               Back to Dashboard
             </Button>
@@ -318,19 +323,25 @@ const SettingsPage = () => {
                   <Select
                     placeholder="Select your target role"
                     size="large"
-                    showSearch
-                    optionFilterProp="children"
+                    listHeight={400}
+                    style={{ fontSize: "1.1em", height: "48px" }}
+                    className="text-lg"
                   >
                     {roleOptions.map((option) => (
                       <Option key={option.value} value={option.value}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium">{option.label}</div>
-                            <div className="text-xs text-gray-500">
+                        <div className="flex items-center justify-between py-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {option.label}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-0.5 line-clamp-1">
                               {option.description}
                             </div>
                           </div>
-                          <Tag color={option.color} className="ml-2">
+                          <Tag
+                            color={option.color}
+                            className="ml-3 flex-shrink-0"
+                          >
                             {option.value.split(" ")[0]}
                           </Tag>
                         </div>
@@ -344,7 +355,8 @@ const SettingsPage = () => {
                   description="Questions will be tailored to your selected role with relevant technologies and concepts."
                   type="info"
                   showIcon
-                  className="mt-3"
+                  className="mt-3 text-xs"
+                  style={{ padding: "8px", fontSize: "0.85em" }}
                 />
               </div>
 
@@ -370,12 +382,12 @@ const SettingsPage = () => {
                 >
                   <div className="space-y-4">
                     <Slider
+                      value={currentDuration}
                       marks={durationMarks}
                       step={5}
                       min={5}
                       max={30}
                       onChange={(value) => {
-                        console.log("🎯 SLIDER CHANGED TO:", value);
                         setCurrentDuration(value); // Update real-time state
                         setHasChanges(true); // Enable save button
                         form.setFieldsValue({ duration: value }); // Update form value
@@ -428,25 +440,38 @@ const SettingsPage = () => {
                     },
                   ]}
                 >
-                  <Radio.Group className="space-y-3">
+                  <Select
+                    size="large"
+                    placeholder="Select question complexity"
+                    listHeight={400}
+                    style={{ fontSize: "1.1em", height: "48px" }}
+                    className="text-lg"
+                  >
                     {complexityModes.map((mode) => (
-                      <Radio
-                        key={mode.value}
-                        value={mode.value}
-                        className="block"
-                      >
-                        <div>
-                          <div className="font-medium">{mode.label}</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {mode.description}
+                      <Option key={mode.value} value={mode.value}>
+                        <div className="flex items-center justify-between py-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {mode.label}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                              {mode.description}
+                            </div>
                           </div>
+                          <Tag
+                            color={mode.color}
+                            className="ml-3 flex-shrink-0"
+                          >
+                            {mode.icon}
+                          </Tag>
                         </div>
-                      </Radio>
+                      </Option>
                     ))}
-                  </Radio.Group>
+                  </Select>
                 </Form.Item>
               </div>
 
+              {/* Technical Focus */}
               {/* Technical Focus */}
               <div>
                 <Form.Item
@@ -461,14 +486,30 @@ const SettingsPage = () => {
                     { required: true, message: "Please select focus area" },
                   ]}
                 >
-                  <Select size="large" placeholder="Select technical focus">
+                  <Select
+                    size="large"
+                    placeholder="Select technical focus"
+                    listHeight={400}
+                    style={{ fontSize: "1.1em", height: "48px" }}
+                    className="text-lg"
+                  >
                     {focusAreas.map((area) => (
                       <Option key={area.value} value={area.value}>
-                        <div>
-                          <div className="font-medium">{area.label}</div>
-                          <div className="text-xs text-gray-500">
-                            {area.description}
+                        <div className="flex items-center justify-between py-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {area.label}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                              {area.description}
+                            </div>
                           </div>
+                          <Tag
+                            color={area.color}
+                            className="ml-3 flex-shrink-0"
+                          >
+                            {area.value.split("-")[0]}
+                          </Tag>
                         </div>
                       </Option>
                     ))}
@@ -480,7 +521,8 @@ const SettingsPage = () => {
                   description="This determines which technical areas receive more emphasis in your questions."
                   type="info"
                   showIcon
-                  className="mt-3"
+                  className="mt-3 text-xs"
+                  style={{ padding: "8px", fontSize: "0.85em" }}
                 />
               </div>
             </div>
@@ -493,7 +535,7 @@ const SettingsPage = () => {
                 <SettingOutlined className="text-violet-600" />
               </div>
               <Title level={4} className="mb-0">
-                Interview Preview (Live Update)
+                Interview Preview
               </Title>
             </div>
 
@@ -538,22 +580,26 @@ const SettingsPage = () => {
           </Card>
 
           {/* Action Buttons */}
-          <Card className="shadow-sm border border-gray-200">
+          <Card
+            className="shadow-sm border border-gray-200"
+            bodyStyle={{ padding: "12px" }}
+            size="medium"
+          >
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 <Button
                   type="primary"
                   size="large"
                   icon={<SaveOutlined />}
                   onClick={handleSave}
                   disabled={!hasChanges}
-                  className="px-8"
+                  className="px-6"
                 >
                   Save Settings
                 </Button>
 
                 <Button
-                  size="large"
+                  size="middle"
                   icon={<ReloadOutlined />}
                   onClick={handleReset}
                   disabled={!hasChanges}
@@ -568,7 +614,8 @@ const SettingsPage = () => {
                   description="Your preferences will be applied to the next interview."
                   type="warning"
                   showIcon
-                  className="mb-0"
+                  className="mb-0 text-xs"
+                  style={{ padding: "8px", fontSize: "0.85em" }}
                 />
               )}
             </div>
@@ -576,10 +623,15 @@ const SettingsPage = () => {
 
           {/* Help Section */}
           <Card className="shadow-sm border border-gray-200 bg-gray-50">
-            <Title level={5} className="text-gray-800 mb-3">
-              💡 How These Settings Affect Your Interview
-            </Title>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="w-7 h-7 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <QuestionCircleOutlined className="text-yellow-600" />
+              </div>
+              <Title level={5} className="mb-0 text-gray-800">
+                How These Settings Affect Your Interview
+              </Title>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 mt-4">
               <div>
                 <Paragraph className="mb-2">
                   • <strong>Duration:</strong> Directly controls the number of
