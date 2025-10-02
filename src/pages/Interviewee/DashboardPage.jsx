@@ -19,7 +19,7 @@ import {
   ArrowRightOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  PlayCircleOutlined,
+  SettingOutlined,
   UndoOutlined,
 } from "@ant-design/icons";
 import { FileText, User, Award, TrendingUp } from "lucide-react";
@@ -34,7 +34,7 @@ import {
 import { removeAbandonedAttempt } from "../../store/interviewerSlice";
 import { STORAGE_KEYS } from "../../utils/storageUtils";
 import ResumeInterviewModal from "../../components/ResumeInterviewModal/ResumeInterviewModal";
-
+import { useNavigate } from "react-router-dom";
 const { Title, Text, Paragraph } = Typography;
 
 /**
@@ -60,7 +60,7 @@ const DashboardPage = () => {
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
-
+  const navigate = useNavigate();
   useEffect(() => {
     const timer = setTimeout(() => {
       setDashboardLoading(false);
@@ -168,6 +168,36 @@ const DashboardPage = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Row gutter={[24, 24]}>
           {/* Quick Stats Cards */}
+          <Col xs={24} md={8}>
+            <div
+              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => navigate("/interviewee/settings")}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <SettingOutlined className="text-purple-600" />
+                    </div>
+                    <Text className="font-semibold text-gray-700">
+                      Interview Settings
+                    </Text>
+                  </div>
+                  <Text className="text-sm text-gray-600 block mb-3">
+                    Customize interview duration, complexity, and focus areas
+                  </Text>
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<SettingOutlined />}
+                    className="flex items-center"
+                  >
+                    Configure Settings
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Col>
           <Col xs={24} md={8}>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
