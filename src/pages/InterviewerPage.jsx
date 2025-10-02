@@ -66,7 +66,6 @@ const InterviewerPage = () => {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [activeTab, setActiveTab] = useState("1");
-  const [loading, setLoading] = useState(true);
 
   // Simple data processing
   const processedData = useMemo(() => {
@@ -235,11 +234,6 @@ const InterviewerPage = () => {
     };
   }, [selectedCandidate]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
-
   // Helper functions
   const getStatusBadge = (status) => {
     if (status === "Completed")
@@ -384,14 +378,6 @@ const InterviewerPage = () => {
       ),
     },
   ];
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Spin size="large" />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">

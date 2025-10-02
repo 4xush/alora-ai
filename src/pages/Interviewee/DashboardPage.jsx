@@ -56,19 +56,15 @@ const DashboardPage = () => {
 
   const { resumableInterviewInfo } = useInterviewPersistence();
   const latestInterview = useSelector(selectLatestInterview);
-  const [dashboardLoading, setDashboardLoading] = useState(true);
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDashboardLoading(false);
-      if (resumableInterviewInfo) {
-        console.log("Found in-progress interview, showing resume modal");
-        setShowResumeModal(true);
-      }
-    }, 500);
-    return () => clearTimeout(timer);
+    // Check for resumable interview without loading delay
+    if (resumableInterviewInfo) {
+      console.log("Found in-progress interview, showing resume modal");
+      setShowResumeModal(true);
+    }
   }, [resumableInterviewInfo]);
 
   const hasCompletedInterviews =
@@ -94,19 +90,6 @@ const DashboardPage = () => {
     }
     return null;
   };
-
-  if (dashboardLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <Spin size="large" />
-          <div className="mt-4">
-            <Text className="text-gray-600">Loading dashboard...</Text>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const latestInterviewData = getLatestInterviewData();
 
