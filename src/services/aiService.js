@@ -330,24 +330,79 @@ Return ONLY valid JSON without explanation or markdown formatting.`;
       const parsedResponse = JSON.parse(jsonStr);
 
       if (Array.isArray(parsedResponse.questions) && parsedResponse.questions.length) {
-        // Ensure each question has the required fields and validate structure
-        const validatedQuestions = parsedResponse.questions.map((q, idx) => ({
-          id: q.id || `mcq-${complexity}-${focusArea}-${idx}`,
-          level: q.level || 'medium',
-          text: q.text,
-          options: Array.isArray(q.options) ? q.options : ['Option A', 'Option B', 'Option C', 'Option D'],
-          correctAnswer: q.correctAnswer,
-          seconds: q.seconds || 30,
-          // NEW: Add metadata about settings used
-          metadata: {
-            complexity,
-            focusArea,
-            role,
-            generatedAt: new Date().toISOString()
+        // ENHANCED VALIDATION: Ensure each question has exactly 4 valid options
+        const validatedQuestions = parsedResponse.questions.map((q, idx) => {
+          console.log(`🔍 Validating question ${idx}:`, q); // Debug log
+
+          // ENHANCED VALIDATION: Ensure options are always an array of exactly 4 strings
+          let validOptions;
+
+          if (Array.isArray(q.options) && q.options.length >= 4) {
+            // Take first 4 options and ensure they're strings
+            validOptions = q.options.slice(0, 4).map(opt => String(opt).trim()).filter(opt => opt.length > 0);
+            console.log(`✅ Question ${idx} has ${validOptions.length} valid options`);
+          } else if (Array.isArray(q.options) && q.options.length > 0) {
+            // If less than 4 options, pad with generic options
+            validOptions = [...q.options.map(opt => String(opt).trim())];
+            while (validOptions.length < 4) {
+              validOptions.push(`Option ${String.fromCharCode(65 + validOptions.length)}`);
+            }
+            console.warn(`⚠️ Question ${idx} had ${q.options.length} options, padded to 4`);
+          } else {
+            // No valid options at all, use fallback
+            validOptions = ['Option A', 'Option B', 'Option C', 'Option D'];
+            console.error(`❌ Question ${idx} had invalid options:`, q.options, '- using fallback');
           }
-        }));
+
+          // Final safety check: Ensure we have exactly 4 valid options
+          if (validOptions.length !== 4 || validOptions.some(opt => !opt || opt.trim() === '')) {
+            validOptions = ['Option A', 'Option B', 'Option C', 'Option D'];
+            console.error(`❌ Question ${idx} final validation failed, using fallback options`);
+          }
+
+          // Ensure correctAnswer is one of the options
+          let validCorrectAnswer = q.correctAnswer;
+          if (!validOptions.includes(validCorrectAnswer)) {
+            validCorrectAnswer = validOptions[0]; // Default to first option
+            console.warn(`⚠️ Question ${idx} correctAnswer "${q.correctAnswer}" not in options, defaulting to "${validCorrectAnswer}"`);
+          }
+
+          const validatedQuestion = {
+            id: q.id || `mcq-${complexity}-${focusArea}-${idx}`,
+            level: q.level || 'medium',
+            text: q.text || `Question ${idx + 1}`,
+            options: validOptions, // GUARANTEED to be array of exactly 4 strings
+            correctAnswer: validCorrectAnswer,
+            seconds: q.seconds || 30,
+            metadata: {
+              complexity,
+              focusArea,
+              role,
+              generatedAt: new Date().toISOString(),
+              hasEnhancedValidation: true // Flag to indicate this went through enhanced validation
+            }
+          };
+
+          console.log(`✅ Question ${idx} validated:`, {
+            id: validatedQuestion.id,
+            optionsCount: validatedQuestion.options.length,
+            options: validatedQuestion.options,
+            correctAnswer: validatedQuestion.correctAnswer
+          });
+
+          return validatedQuestion;
+        }).filter(q => q.text && q.options.length === 4); // Extra safety filter
 
         console.log(`✅ Generated ${validatedQuestions.length} questions with complexity: ${complexity}, focus: ${focusArea}`);
+        console.log(`🔍 ALL QUESTIONS VALIDATED FOR EXACTLY 4 OPTIONS EACH`);
+
+        // Final verification log
+        validatedQuestions.forEach((q, i) => {
+          if (!Array.isArray(q.options) || q.options.length !== 4) {
+            console.error(`🚨 VALIDATION FAILED FOR QUESTION ${i}:`, q);
+          }
+        });
+
         return { questions: validatedQuestions };
       }
     } catch (e) {
