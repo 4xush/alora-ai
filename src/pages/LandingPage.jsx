@@ -1,4 +1,9 @@
-import React, { useState, useEffect, startTransition } from "react";
+const handleNavigate = (path) => {
+  // Replace with your actual navigation logic
+  console.log(`Navigating to ${path}`);
+  // navigate(path);
+};
+import React, { useState, useEffect } from "react";
 import {
   ArrowRight,
   Brain,
@@ -17,6 +22,12 @@ const LandingPage = () => {
   useEffect(() => {
     setIsVisible(true);
   }, []);
+
+  const handleNavigate = (path) => {
+    // Replace with your actual navigation logic
+    console.log(`Navigating to ${path}`);
+    // navigate(path);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50">
@@ -55,7 +66,7 @@ const LandingPage = () => {
           {/* Interviewee Card */}
           <div
             className="group bg-white rounded-xl p-6 shadow hover:shadow-xl transition-all duration-300 cursor-pointer border border-slate-100 hover:border-indigo-200 transform hover:-translate-y-1"
-            onClick={() => startTransition(() => navigate("/interviewee"))}
+            onClick={() => navigate("/interviewee")}
           >
             <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
               <FileText className="w-7 h-7 text-white" />
@@ -95,7 +106,7 @@ const LandingPage = () => {
           {/* Interviewer Card */}
           <div
             className="group bg-white rounded-xl p-6 shadow hover:shadow-xl transition-all duration-300 cursor-pointer border border-slate-100 hover:border-indigo-200 transform hover:-translate-y-1"
-            onClick={() => startTransition(() => navigate("/interviewer"))}
+            onClick={() => navigate("/interviewer")}
           >
             <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
               <Users className="w-7 h-7 text-white" />

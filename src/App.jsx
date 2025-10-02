@@ -1,26 +1,17 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import RouteTransition from "./components/RouteTransition";
+import LandingPage from "./pages/LandingPage.jsx";
 import AppLayout from "./layouts/AppLayout.jsx";
-// Lazy load page components only
-const LandingPage = React.lazy(() => import("./pages/LandingPage.jsx"));
-const IntervieweePage = React.lazy(() =>
-  import("./pages/Interviewee/IntervieweePage")
-);
-const InterviewerPage = React.lazy(() => import("./pages/InterviewerPage.jsx"));
+import IntervieweePage from "./pages/Interviewee/IntervieweePage";
+import InterviewerPage from "./pages/InterviewerPage.jsx";
 
 const App = () => {
   return (
     <Routes>
-      {/* Public routes - no suspense loading, let page handle its own loading */}
-      <Route
-        path="/"
-        element={
-            <RouteTransition>
-              <LandingPage />
-            </RouteTransition>
-        }
-      />
+      {/* Public routes */}
+      <Route path="/" element={<LandingPage />} />
+
+      {/* All routes under unified AppLayout */}
       <Route element={<AppLayout />}>
         {/* Interviewee routes */}
         <Route
@@ -29,46 +20,23 @@ const App = () => {
         />
         <Route
           path="/interviewee/dashboard"
-          element={
-            <RouteTransition>
-              <IntervieweePage step="dashboard" />
-            </RouteTransition>
-          }
+          element={<IntervieweePage step="dashboard" />}
         />
         <Route
           path="/interviewee/pre-interview"
-          element={
-            <RouteTransition>
-              <IntervieweePage step="pre-interview" />
-            </RouteTransition>
-          }
+          element={<IntervieweePage step="pre-interview" />}
         />
         <Route
           path="/interviewee/interview"
-          element={
-            <RouteTransition>
-              <IntervieweePage step="interview" />
-            </RouteTransition>
-          }
+          element={<IntervieweePage step="interview" />}
         />
         <Route
           path="/interviewee/summary"
-          element={
-            <RouteTransition>
-              <IntervieweePage step="summary" />
-            </RouteTransition>
-          }
+          element={<IntervieweePage step="summary" />}
         />
 
         {/* Interviewer routes */}
-        <Route
-          path="/interviewer"
-          element={
-            <RouteTransition>
-              <InterviewerPage />
-            </RouteTransition>
-          }
-        />
+        <Route path="/interviewer" element={<InterviewerPage />} />
       </Route>
 
       {/* Fallback route */}
