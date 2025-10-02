@@ -57,13 +57,13 @@ const DashboardPage = () => {
 
   const { resumableInterviewInfo } = useInterviewPersistence();
   const latestInterview = useSelector(selectLatestInterview);
-  const [dashboardLoading, setDashboardLoading] = useState(true);
+  // Removed dashboardLoading in favor of global loading state
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
   const navigate = useNavigate();
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDashboardLoading(false);
+      // Check for resumable interviews after a small delay
       if (resumableInterviewInfo) {
         console.log("Found in-progress interview, showing resume modal");
         setShowResumeModal(true);
@@ -96,18 +96,7 @@ const DashboardPage = () => {
     return null;
   };
 
-  if (dashboardLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <Spin size="large" />
-          <div className="mt-4">
-            <Text className="text-gray-600">Loading dashboard...</Text>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Removed dashboardLoading check in favor of global loading state
 
   const latestInterviewData = getLatestInterviewData();
 

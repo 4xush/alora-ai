@@ -66,7 +66,7 @@ const InterviewerPage = () => {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [activeTab, setActiveTab] = useState("1");
-  const [loading, setLoading] = useState(true);
+  // Removed page-specific loading state in favor of global loading
 
   // Simple data processing
   const processedData = useMemo(() => {
@@ -235,10 +235,7 @@ const InterviewerPage = () => {
     };
   }, [selectedCandidate]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+  // Removed loading timer in favor of global loading system
 
   // Helper functions
   const getStatusBadge = (status) => {
@@ -385,13 +382,7 @@ const InterviewerPage = () => {
     },
   ];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Spin size="large" />
-      </div>
-    );
-  }
+  // Removed page-specific loading check in favor of global loading
 
   return (
     <div className="min-h-screen bg-gray-50">
