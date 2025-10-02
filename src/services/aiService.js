@@ -217,6 +217,22 @@ export const aiService = {
   },
 
   async generateMCQQuestions({ role, count = 10, questionDistribution, complexity = 'balanced', focusArea = 'full-coverage', resumeText }) {
+
+    // ===== ADD THESE DEBUG LOGS AT THE START =====
+    console.log("🤖 AI SERVICE DEBUG - Received parameters:");
+    console.log("  📊 count:", count);
+    console.log("  📋 questionDistribution:", questionDistribution);
+    console.log("  🎯 role:", role);
+    console.log("  🔥 complexity:", complexity);
+    console.log("  🎪 focusArea:", focusArea);
+    console.log("  📝 resumeText length:", resumeText?.length);
+
+    // Calculate expected total from distribution
+    const expectedTotal = questionDistribution?.reduce((total, level) => total + level.count, 0) || count;
+    console.log("📊 AI SERVICE DEBUG - Expected total questions from distribution:", expectedTotal);
+    // =============================================
+
+
     if (!genAI) {
       const qs = pickMCQQuestions(questionDistribution);
       return { questions: qs };
@@ -340,7 +356,6 @@ Return ONLY valid JSON without explanation or markdown formatting.`;
           if (Array.isArray(q.options) && q.options.length >= 4) {
             // Take first 4 options and ensure they're strings
             validOptions = q.options.slice(0, 4).map(opt => String(opt).trim()).filter(opt => opt.length > 0);
-            console.log(`✅ Question ${idx} has ${validOptions.length} valid options`);
           } else if (Array.isArray(q.options) && q.options.length > 0) {
             // If less than 4 options, pad with generic options
             validOptions = [...q.options.map(opt => String(opt).trim())];
@@ -382,19 +397,8 @@ Return ONLY valid JSON without explanation or markdown formatting.`;
               hasEnhancedValidation: true // Flag to indicate this went through enhanced validation
             }
           };
-
-          console.log(`✅ Question ${idx} validated:`, {
-            id: validatedQuestion.id,
-            optionsCount: validatedQuestion.options.length,
-            options: validatedQuestion.options,
-            correctAnswer: validatedQuestion.correctAnswer
-          });
-
           return validatedQuestion;
         }).filter(q => q.text && q.options.length === 4); // Extra safety filter
-
-        console.log(`✅ Generated ${validatedQuestions.length} questions with complexity: ${complexity}, focus: ${focusArea}`);
-        console.log(`🔍 ALL QUESTIONS VALIDATED FOR EXACTLY 4 OPTIONS EACH`);
 
         // Final verification log
         validatedQuestions.forEach((q, i) => {

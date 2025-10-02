@@ -23,7 +23,7 @@ const ResumeInterviewModal = ({
       closable={false}
       maskClosable={false}
       className="top-20"
-      bodyStyle={{ padding: "16px" }}
+      styles={{ body: { padding: "16px" } }}
     >
       <div className="py-2">
         <Text className="block mb-4 text-gray-600 text-sm">
