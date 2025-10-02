@@ -69,12 +69,30 @@ export const generateQuestions = createAsyncThunk(
   async (_, { getState, rejectWithValue }) => {
     const { interviewee, settings } = getState();
     try {
-      console.log("🤖 Generating questions for role:", settings?.role || "full-stack engineer");
-      console.log("⚙️ Enhanced settings:", settings);
+      // ===== ADD THESE DEBUG LOGS =====
+      console.log("🔧 SETTINGS DEBUG - Current Redux settings:", settings);
+      console.log(
+        "📊 SETTINGS DEBUG - Duration from settings:",
+        settings?.duration,
+      );
+      console.log("🎯 SETTINGS DEBUG - Role from settings:", settings?.role);
+      console.log(
+        "🔥 SETTINGS DEBUG - Complexity from settings:",
+        settings?.complexity,
+      );
+      console.log(
+        "🎪 SETTINGS DEBUG - Focus Area from settings:",
+        settings?.focusArea,
+      );
+      // ================================
 
       // NEW: Dynamic question distribution based on duration
       const getQuestionDistributionByDuration = (duration) => {
+        console.log("⏰ DURATION DEBUG - Input duration:", duration); // ADD THIS
         if (duration <= 10) {
+          console.log(
+            "📋 DURATION DEBUG - Using SHORT interview (6 questions)",
+          ); // ADD THIS
           return [
             { level: "easy", count: 2, seconds: 30 },
             { level: "medium", count: 3, seconds: 45 },
@@ -97,18 +115,22 @@ export const generateQuestions = createAsyncThunk(
 
       // NEW: Adjust question distribution based on complexity preference
       const adjustForComplexity = (distribution, complexity) => {
-        if (complexity === 'fundamentals') {
+        if (complexity === "fundamentals") {
           // More easy questions, fewer hard ones
-          return distribution.map(level => {
-            if (level.level === 'easy') return { ...level, count: level.count + 1 };
-            if (level.level === 'hard') return { ...level, count: Math.max(1, level.count - 1) };
+          return distribution.map((level) => {
+            if (level.level === "easy")
+              return { ...level, count: level.count + 1 };
+            if (level.level === "hard")
+              return { ...level, count: Math.max(0, level.count - 1) };
             return level;
           });
-        } else if (complexity === 'advanced') {
+        } else if (complexity === "advanced") {
           // More hard questions, fewer easy ones
-          return distribution.map(level => {
-            if (level.level === 'easy') return { ...level, count: Math.max(1, level.count - 1) };
-            if (level.level === 'hard') return { ...level, count: level.count + 1 };
+          return distribution.map((level) => {
+            if (level.level === "easy")
+              return { ...level, count: Math.max(0, level.count - 1) };
+            if (level.level === "hard")
+              return { ...level, count: level.count + 1 };
             return level;
           });
         }
@@ -117,24 +139,43 @@ export const generateQuestions = createAsyncThunk(
 
       // NEW: Calculate question distribution based on settings
       const baseDuration = settings?.duration || 10;
-      const complexity = settings?.complexity || 'balanced';
-      const focusArea = settings?.focusArea || 'full-coverage';
+      const complexity = settings?.complexity || "balanced";
+      const focusArea = settings?.focusArea || "full-coverage";
 
-      let questionDistribution = getQuestionDistributionByDuration(baseDuration);
-      questionDistribution = adjustForComplexity(questionDistribution, complexity);
+      let questionDistribution =
+        getQuestionDistributionByDuration(baseDuration);
+      questionDistribution = adjustForComplexity(
+        questionDistribution,
+        complexity,
+      );
 
-      const totalQuestions = questionDistribution.reduce((total, level) => total + level.count, 0);
+      const totalQuestions = questionDistribution.reduce(
+        (total, level) => total + level.count,
+        0,
+      );
 
-      console.log(`📊 Question distribution for ${baseDuration}min interview:`, questionDistribution);
+      console.log(
+        `📊 Question distribution for ${baseDuration}min interview:`,
+        questionDistribution,
+      );
       console.log(`🎯 Total questions: ${totalQuestions}`);
       console.log(`🔧 Complexity mode: ${complexity}, Focus: ${focusArea}`);
+
+      console.log(
+        "📋 DISTRIBUTION DEBUG - Initial distribution:",
+        questionDistribution,
+      ); // ADD THIS
+      console.log(
+        "📊 DISTRIBUTION DEBUG - Total questions calculated:",
+        questionDistribution.reduce((total, level) => total + level.count, 0),
+      ); // ADD THIS
 
       const res = await aiService.generateMCQQuestions({
         role: settings?.role || "full-stack engineer",
         count: totalQuestions,
         questionDistribution,
         complexity, // NEW: Pass complexity to AI service
-        focusArea,  // NEW: Pass focus area to AI service
+        focusArea, // NEW: Pass focus area to AI service
         resumeText: interviewee.resume.text,
       });
 
@@ -152,7 +193,11 @@ export const scoreAnswers = createAsyncThunk(
   async (_, { getState, rejectWithValue }) => {
     const { interviewee } = getState();
     try {
-      console.log("📊 Scoring answers for", interviewee.answers.length, "questions");
+      console.log(
+        "📊 Scoring answers for",
+        interviewee.answers.length,
+        "questions",
+      );
 
       const res = await aiService.scoreAnswers({
         questions: interviewee.questions,
@@ -281,8 +326,12 @@ const intervieweeSlice = createSlice({
         state.currentStep = 3;
 
         if (state.finalScore === null) {
-          const answeredCorrectly = state.answers.filter(a => a.score && a.score >= 7).length;
-          state.finalScore = Math.round((answeredCorrectly / state.questions.length) * 100);
+          const answeredCorrectly = state.answers.filter(
+            (a) => a.score && a.score >= 7,
+          ).length;
+          state.finalScore = Math.round(
+            (answeredCorrectly / state.questions.length) * 100,
+          );
           state.finalSummary = "Interview completed successfully.";
         }
         return;
@@ -298,7 +347,10 @@ const intervieweeSlice = createSlice({
         state.interviewStartTime = new Date().toISOString();
       }
 
-      if (state.currentQuestionIndex < 0 || state.currentQuestionIndex >= state.questions.length) {
+      if (
+        state.currentQuestionIndex < 0 ||
+        state.currentQuestionIndex >= state.questions.length
+      ) {
         state.currentQuestionIndex = 0;
       }
 
@@ -316,7 +368,7 @@ const intervieweeSlice = createSlice({
           answersCount: state.answers.length,
           questionsCount: state.questions.length,
           status: state.status,
-          paused: true
+          paused: true,
         });
       }
     },
@@ -329,8 +381,20 @@ const intervieweeSlice = createSlice({
     },
 
     recordAnswer(state, action) {
-      const { questionId, answer, secondsSpent } = action.payload;
-      console.log("📝 Recording answer", { questionId, secondsSpent });
+      const {
+        questionId,
+        answer,
+        secondsSpent,
+        wasSkipped = false,
+        wasTimeUp = false,
+      } = action.payload;
+      console.log("📝 Recording answer", {
+        questionId,
+        secondsSpent,
+        wasSkipped,
+        wasTimeUp,
+        answer: wasSkipped ? "[SKIPPED]" : answer,
+      });
 
       const existingAnswerIndex = state.answers.findIndex(
         (a) => a.questionId === questionId,
@@ -338,7 +402,9 @@ const intervieweeSlice = createSlice({
 
       // Normalize answer format
       let processedAnswer;
-      if (answer === undefined || answer === null) {
+      if (wasSkipped) {
+        processedAnswer = ""; // Empty for skipped questions
+      } else if (answer === undefined || answer === null) {
         processedAnswer = "";
       } else if (typeof answer === "object") {
         processedAnswer = answer.value || answer.text || JSON.stringify(answer);
@@ -350,6 +416,8 @@ const intervieweeSlice = createSlice({
         questionId,
         answer: processedAnswer,
         secondsSpent,
+        wasSkipped,
+        wasTimeUp,
         timestamp: new Date().toISOString(),
       };
 
@@ -362,13 +430,18 @@ const intervieweeSlice = createSlice({
         state.answers.push(answerData);
       }
 
-      // Save progress
+      // Save progress with accurate tracking
       if (state.currentInterviewId) {
+        const totalAnswered = state.answers.filter((a) => !a.wasSkipped).length;
+        const totalSkipped = state.answers.filter((a) => a.wasSkipped).length;
+
         interviewSyncService.saveProgress(state.currentInterviewId, {
           currentQuestionIndex: state.currentQuestionIndex,
           answersCount: state.answers.length,
+          answeredCount: totalAnswered,
+          skippedCount: totalSkipped,
           questionsCount: state.questions.length,
-          status: state.status
+          status: state.status,
         });
       }
     },
@@ -383,7 +456,10 @@ const intervieweeSlice = createSlice({
     previousQuestion(state) {
       if (state.currentQuestionIndex > 0) {
         state.currentQuestionIndex -= 1;
-        console.log("⬅️ Went back to question:", state.currentQuestionIndex + 1);
+        console.log(
+          "⬅️ Went back to question:",
+          state.currentQuestionIndex + 1,
+        );
       }
     },
 
@@ -415,7 +491,7 @@ const intervieweeSlice = createSlice({
         interviewSyncService.completeInterview(state.currentInterviewId, {
           totalScore,
           summary,
-          completedAt: new Date().toISOString()
+          completedAt: new Date().toISOString(),
         });
       }
 
@@ -431,8 +507,10 @@ const intervieweeSlice = createSlice({
         answers: [...state.answers],
         finalScore: state.finalScore,
         finalSummary: state.finalSummary,
-        completionRatio: state.questions.length > 0
-          ? Math.round((state.answers.length / state.questions.length) * 100) : 0,
+        completionRatio:
+          state.questions.length > 0
+            ? Math.round((state.answers.length / state.questions.length) * 100)
+            : 0,
         status: "completed",
       };
 
@@ -463,7 +541,10 @@ const intervieweeSlice = createSlice({
       Object.assign(state, {
         ...initialState,
         pastInterviews,
-        profile: profileInfo.name || profileInfo.email ? profileInfo : initialState.profile,
+        profile:
+          profileInfo.name || profileInfo.email
+            ? profileInfo
+            : initialState.profile,
         resume: resumeInfo.text ? resumeInfo : initialState.resume,
       });
 
@@ -499,8 +580,12 @@ const intervieweeSlice = createSlice({
 
       if (interview) {
         console.log("👁️ Viewing past interview:", interviewId);
-        state.questions = Array.isArray(interview.questions) ? interview.questions : [];
-        state.answers = Array.isArray(interview.answers) ? interview.answers : [];
+        state.questions = Array.isArray(interview.questions)
+          ? interview.questions
+          : [];
+        state.answers = Array.isArray(interview.answers)
+          ? interview.answers
+          : [];
         state.finalScore = interview.finalScore;
         state.finalSummary = interview.finalSummary || "";
         state.status = "completed";
@@ -531,11 +616,15 @@ const intervieweeSlice = createSlice({
       })
       .addCase(scoreAnswers.fulfilled, (state, action) => {
         state.loading = false;
-        const { perAnswer, totalScore, summary, completionRatio } = action.payload;
+        const { perAnswer, totalScore, summary, completionRatio } =
+          action.payload;
         state.finalScore = totalScore;
         state.finalSummary = summary;
-        state.completionRatio = completionRatio ||
-          (state.questions.length > 0 ? Math.round((state.answers.length / state.questions.length) * 100) : 0);
+        state.completionRatio =
+          completionRatio ||
+          (state.questions.length > 0
+            ? Math.round((state.answers.length / state.questions.length) * 100)
+            : 0);
 
         if (Array.isArray(perAnswer)) {
           state.answers = state.answers.map((answer, index) => ({
@@ -550,7 +639,8 @@ const intervieweeSlice = createSlice({
         state.error = action.payload || "Failed to score answers";
         // Fallback scoring
         state.finalScore = Math.round(Math.random() * 40 + 50);
-        state.finalSummary = "Unable to generate detailed scoring due to technical issues.";
+        state.finalSummary =
+          "Unable to generate detailed scoring due to technical issues.";
       });
   },
 });
@@ -584,20 +674,31 @@ export const selectCurrentInterview = (state) => ({
   id: state.interviewee.currentInterviewId,
   status: state.interviewee.status,
   step: state.interviewee.currentStep,
-  progress: state.interviewee.questions.length > 0
-    ? Math.round((state.interviewee.answers.length / state.interviewee.questions.length) * 100)
-    : 0,
+  progress:
+    state.interviewee.questions.length > 0
+      ? Math.round(
+          (state.interviewee.answers.length /
+            state.interviewee.questions.length) *
+            100,
+        )
+      : 0,
 });
 
 export const selectProfile = (state) => state.interviewee.profile;
 export const selectResume = (state) => state.interviewee.resume;
-export const selectPastInterviews = (state) => state.interviewee.pastInterviews || [];
+export const selectPastInterviews = (state) =>
+  state.interviewee.pastInterviews || [];
 export const selectLatestInterview = (state) => {
   const interviews = state.interviewee.pastInterviews || [];
-  const scoredInterviews = interviews.filter(interview =>
-    interview.finalScore !== null && interview.finalScore !== undefined
+  const scoredInterviews = interviews.filter(
+    (interview) =>
+      interview.finalScore !== null && interview.finalScore !== undefined,
   );
-  return scoredInterviews.length > 0 ? scoredInterviews[0] : (interviews.length > 0 ? interviews[0] : null);
+  return scoredInterviews.length > 0
+    ? scoredInterviews[0]
+    : interviews.length > 0
+      ? interviews[0]
+      : null;
 };
 
 export default intervieweeSlice.reducer;

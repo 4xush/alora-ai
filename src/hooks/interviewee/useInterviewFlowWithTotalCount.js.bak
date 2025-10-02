@@ -54,6 +54,7 @@ export const useInterviewFlow = () => {
     loading,
     error,
     currentInterviewId,
+    totalInterviewCount,
   } = useSelector((s) => s.interviewee);
 
   const settings = useSelector((s) => s.settings);
@@ -316,9 +317,23 @@ export const useInterviewFlow = () => {
 
         // Show appropriate message
         if (wasSkipped) {
-          message.info("Question skipped. Moving to next question...");
+          if (isLast) {
+            message.info("Question skipped. Finalizing your assessment...");
+          } else {
+            message.info("Question skipped. Moving to next question...");
+          }
         } else if (wasTimeUp || fromAutoSubmit) {
-          message.success("Answer recorded! Moving to next question...");
+          if (isLast) {
+            message.success("Answer recorded! Finalizing your assessment...");
+          } else {
+            message.success("Answer recorded! Moving to next question...");
+          }
+        } else {
+          // Normal answer submission
+          if (isLast) {
+            message.success("Answer submitted! Finalizing your assessment...");
+          }
+          // No message for non-last questions in normal flow to avoid spam
         }
 
         if (!isLast) {
@@ -487,6 +502,7 @@ export const useInterviewFlow = () => {
     profile,
     resume,
     pastInterviews,
+    totalInterviewCount,
     inProgress,
     paused,
     status,

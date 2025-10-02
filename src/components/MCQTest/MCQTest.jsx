@@ -11,7 +11,6 @@ import {
   Button,
   Typography,
   Progress,
-  Space,
   Alert,
   Spin,
   Tag,
@@ -53,6 +52,8 @@ const MCQTest = ({ onAnswer }) => {
   const isSubmittingRef = useRef(false);
 
   const currentQuestion = questions[currentQuestionIndex];
+  // Last question behavior - users can answer OR skip the final question
+  // This provides better UX by not forcing users to guess unknown answers
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const progress = Math.round(
     ((currentQuestionIndex + 1) / questions.length) * 100
@@ -88,15 +89,19 @@ const MCQTest = ({ onAnswer }) => {
           ? Math.round((Date.now() - questionStartTime) / 1000)
           : (currentQ.seconds || 30) - timeRemaining;
 
+        const isLastQuestion = currentIndex === questions.length - 1;
+        const isLastQuestionWithoutAnswer = isLastQuestion && !selectedOption;
+
         const answerData = {
           questionId: currentQ.id,
           answer: selectedOption || "",
           secondsSpent,
-          isLast: currentIndex === questions.length - 1,
+          isLast: isLastQuestion,
           isMultipleChoice: true,
           options: currentQ.options,
           correctAnswer: currentQ.correctAnswer,
           wasTimeUp: isTimeUp,
+          wasSkipped: isLastQuestionWithoutAnswer,
           fromAutoSubmit: fromAutoSubmit || isTimeUp,
         };
 
@@ -195,9 +200,48 @@ const MCQTest = ({ onAnswer }) => {
     return () => clearInterval(timer);
   }, [timeRemaining, paused, inProgress, isSubmitting, handleTimeUp]);
 
-  const handleTestNextQuestion = () => {
-    dispatch(nextQuestion());
-  };
+  const handleSkipQuestion = useCallback(async () => {
+    if (isSubmittingRef.current) {
+      return;
+    }
+
+    const currentIndex = currentQuestionIndexRef.current;
+    const currentQ = questions[currentIndex];
+
+    if (!currentQ) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    isSubmittingRef.current = true;
+
+    try {
+      const secondsSpent = questionStartTime
+        ? Math.round((Date.now() - questionStartTime) / 1000)
+        : (currentQ.seconds || 30) - timeRemaining;
+
+      const answerData = {
+        questionId: currentQ.id,
+        answer: "", // Empty answer for skipped question
+        secondsSpent,
+        isLast: currentIndex === questions.length - 1,
+        isMultipleChoice: true,
+        options: currentQ.options,
+        correctAnswer: currentQ.correctAnswer,
+        wasSkipped: true,
+        fromAutoSubmit: false,
+      };
+
+      if (onAnswer) {
+        await onAnswer(answerData);
+      }
+    } catch (error) {
+      dispatch(setError("Failed to skip question. Please try again."));
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
+    }
+  }, [questionStartTime, timeRemaining, onAnswer, dispatch, questions]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -396,11 +440,16 @@ const MCQTest = ({ onAnswer }) => {
             {/* Action Buttons - Moved Below Options */}
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="flex items-center justify-end gap-3">
+                {/* Primary Action Button - Changes behavior on last question */}
                 <Button
                   type="primary"
                   size="middle"
                   onClick={() => handleSubmitAnswer(false, false)}
-                  disabled={!selectedOption || paused || isSubmitting}
+                  disabled={
+                    isLastQuestion
+                      ? paused || isSubmitting // Last question: always enabled (with or without answer)
+                      : !selectedOption || paused || isSubmitting // Other questions: require answer
+                  }
                   loading={isSubmitting}
                   icon={isLastQuestion ? <CheckOutlined /> : <RightOutlined />}
                   className="px-5 font-medium"
@@ -408,17 +457,24 @@ const MCQTest = ({ onAnswer }) => {
                   {isSubmitting
                     ? "Submitting..."
                     : isLastQuestion
-                    ? "Finish Assessment"
+                    ? selectedOption
+                      ? "Submit & Finish"
+                      : "Finish Assessment"
                     : "Next Question"}
                 </Button>
-                                <Button
+                {/* Skip button available for all questions including the last one
+                    - Users can skip any question they don't know, even the final one
+                    - For last question, skipping will complete the interview
+                    - Better UX: no forced guessing on unknown answers */}
+                <Button
                   danger
                   size="middle"
-                  onClick={handleTestNextQuestion}
-                  disabled={isLastQuestion || paused || isSubmitting}
+                  onClick={handleSkipQuestion}
+                  disabled={paused || isSubmitting}
+                  loading={isSubmitting}
                   className="px-5"
                 >
-                  Skip Question
+                  {isLastQuestion ? "Skip & Finish" : "Skip Question"}
                 </Button>
               </div>
 
