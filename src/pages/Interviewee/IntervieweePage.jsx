@@ -44,14 +44,10 @@ const IntervieweePage = ({ step = "dashboard" }) => {
   };
 
   return (
-    <div className="min-h-screen ">
-      <div className="container mx-auto">
-        <ErrorBoundary onReset={() => window.location.reload()}>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            {renderPageForStep()}
-          </div>
-        </ErrorBoundary>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <ErrorBoundary onReset={() => window.location.reload()}>
+        {renderPageForStep()}
+      </ErrorBoundary>
     </div>
   );
 };

@@ -5,6 +5,7 @@ import {
   FilePdfOutlined,
   FileWordOutlined,
   LoadingOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 import { parsePDF, parseDOCX } from "../../services/resumeService.js";
 
@@ -26,12 +27,20 @@ const ResumeUploader = ({ onParsed, existingResume }) => {
     }
   }, [existingResume]);
 
+  const handleRemove = () => {
+    setFileList([]);
+    // Clear the resume data in parent component
+    onParsed("", { fileName: "", fileType: "" });
+    message.info("Resume removed");
+  };
+
   const beforeUpload = async (file) => {
     const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
     const isDocx =
       file.type ===
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       file.name.endsWith(".docx");
+
     if (!isPdf && !isDocx) {
       message.error("Invalid file. Please upload a PDF or DOCX.");
       return Upload.LIST_IGNORE;
@@ -77,50 +86,62 @@ const ResumeUploader = ({ onParsed, existingResume }) => {
 
   return (
     <div>
-      <Typography.Paragraph type="secondary">
-        PDF preferred; DOCX supported as fallback.
-      </Typography.Paragraph>
+      <Typography.Text type="secondary" className="text-sm block mb-3">
+        PDF preferred; DOCX supported as fallback
+      </Typography.Text>
 
       {existingResume?.text && existingResume?.fileName ? (
-        <div className="mb-4">
-          <Space direction="vertical" size="small">
-            <div className="flex items-center">
-              <span className="mr-2">Current Resume:</span>
-              <Tag
-                color="blue"
-                icon={
-                  existingResume.fileName.endsWith(".pdf") ? (
-                    <FilePdfOutlined />
-                  ) : (
-                    <FileWordOutlined />
-                  )
-                }
-              >
-                {existingResume.fileName}
-              </Tag>
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {existingResume.fileName.endsWith(".pdf") ? (
+                <FilePdfOutlined className="text-blue-600 text-base" />
+              ) : (
+                <FileWordOutlined className="text-blue-600 text-base" />
+              )}
+              <div>
+                <Typography.Text className="text-sm font-medium block">
+                  {existingResume.fileName}
+                </Typography.Text>
+                <Typography.Text type="secondary" className="text-xs">
+                  {existingResume.text.length} characters extracted
+                </Typography.Text>
+              </div>
             </div>
-            <Typography.Text type="secondary" className="text-xs">
-              {existingResume.text.length} characters extracted
-            </Typography.Text>
-          </Space>
+            <Button
+              type="text"
+              size="small"
+              icon={<DeleteOutlined />}
+              onClick={handleRemove}
+              danger
+              className="hover:bg-red-50"
+            >
+              Remove
+            </Button>
+          </div>
         </div>
       ) : null}
 
       {isLoading ? (
-        <div className="flex items-center space-x-2 my-2">
-          <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
-          <span className="text-blue-600">
+        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+          <Spin indicator={<LoadingOutlined className="text-base" spin />} />
+          <Typography.Text className="text-sm text-blue-600">
             Parsing resume and extracting information...
-          </span>
+          </Typography.Text>
         </div>
       ) : (
         <Upload
           beforeUpload={beforeUpload}
-          fileList={fileList}
-          onRemove={() => setFileList([])}
+          fileList={[]}
+          showUploadList={false}
           disabled={isLoading}
         >
-          <Button icon={<UploadOutlined />} disabled={isLoading}>
+          <Button
+            icon={<UploadOutlined />}
+            disabled={isLoading}
+            size="medium"
+            className="w-full"
+          >
             {existingResume?.fileName ? "Replace Resume" : "Select Resume"}
           </Button>
         </Upload>

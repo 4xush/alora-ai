@@ -22,7 +22,7 @@ import {
   SettingOutlined,
   UndoOutlined,
 } from "@ant-design/icons";
-import { FileText, User, Award, TrendingUp } from "lucide-react";
+import { FileText, User, Award,Sparkles, TrendingUp } from "lucide-react";
 import useInterviewFlow from "../../hooks/interviewee/useInterviewFlow";
 import useInterviewPersistence from "../../hooks/interviewee/useInterviewPersistence";
 import { useDispatch, useSelector } from "react-redux";
@@ -127,51 +127,53 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Header Section */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
+      <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <div>
-                <Title level={2} className="mb-1">
-                  Welcome{profile?.name ? `, ${profile.name}` : ""}!
-                </Title>
-                <Text className="text-gray-600">
-                  Track your progress and continue improving your interview
-                  skills
-                </Text>
-              </div>
-              <div className="hidden lg:flex items-center gap-3 pl-8 border-l border-gray-200">
-                <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-lg">
-                  <Award className="w-5 h-5 text-violet-600" />
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                  <Sparkles className="text-white" size={24} />
                 </div>
                 <div>
-                  <Text className="text-xs text-gray-500 block leading-tight">
-                    Total Interviews
-                  </Text>
-                  <Text className="text-2xl font-semibold text-gray-900">
-                    {pastInterviews?.length || 0}
-                  </Text>
+                  <Title level={2} className="!mb-0 !text-2xl !font-bold">
+                    Welcome{profile?.name ? `, ${profile.name}` : ""}!
+                  </Title>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-50 rounded-lg border border-violet-100">
+                      <Award className="w-3.5 h-3.5 text-violet-600" />
+                      <Text className="text-sm font-semibold text-violet-700">
+                        {pastInterviews?.length || 0}{" "}
+                        {pastInterviews?.length === 1
+                          ? "Interview"
+                          : "Interviews"}
+                      </Text>
+                    </div>
+                    <Text className="text-gray-500 text-sm">completed</Text>
+                  </div>
                 </div>
               </div>
             </div>
-            <Button
-              type="primary"
-              size="large"
-              icon={<ArrowRightOutlined />}
-              onClick={handleStartNewInterview}
-              className="hidden md:flex items-center"
-            >
-              Start New Interview
-            </Button>
+            <div className="flex items-center gap-4">
+              <Button
+                type="primary"
+                size="large"
+                icon={<ArrowRightOutlined />}
+                onClick={handleStartNewInterview}
+                className="hidden md:flex items-center"
+              >
+                Start New Interview
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Row gutter={[24, 24]}>
+        <Row gutter={[16, 16]} className="mb-6">
           {/* Quick Stats Cards */}
           <Col xs={24} md={8}>
             <div

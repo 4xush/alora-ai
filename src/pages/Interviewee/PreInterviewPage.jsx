@@ -27,7 +27,7 @@ import {
 } from "../../store/intervieweeSlice";
 import { removeAbandonedAttempt } from "../../store/interviewerSlice";
 import { STORAGE_KEYS } from "../../utils/storageUtils";
-
+import { ClipboardCheck } from "lucide-react";
 const { Step } = Steps;
 const { Title, Text } = Typography;
 
@@ -225,12 +225,19 @@ const PreInterviewPage = () => {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <Title level={2} className="mb-1">
-                Interview Setup
-              </Title>
-              <Text className="text-gray-600">
-                Complete these steps to begin your assessment
-              </Text>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                  <ClipboardCheck className="text-white" size={24} />
+                </div>
+                <div>
+                  <Title level={2} className="!mb-0 !text-2xl !font-bold">
+                    Interview Setup
+                  </Title>
+                  <Text className="text-gray-500 text-sm">
+                    Complete these steps to begin your assessment
+                  </Text>
+                </div>
+              </div>
             </div>
             <Button
               onClick={handleBackToDashboard}
@@ -245,9 +252,9 @@ const PreInterviewPage = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* Steps Progress */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
           <Steps current={currentStep} className="px-4">
             <Step
               title={<span className="text-sm">Resume</span>}
@@ -283,33 +290,36 @@ const PreInterviewPage = () => {
         {/* Step Content */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {currentStep === 0 && (
-            <div className="p-8">
+            <div className="p-6">
               <div className="max-w-2xl mx-auto">
-                <div className="text-center mb-8">
-                  <div className="w-16 h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <FileTextOutlined className="text-3xl text-white" />
+                <div className="mb-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30">
+                      <FileTextOutlined className="text-xl text-white" />
+                    </div>
+                    <div>
+                      <Title level={3} className="!mb-0 !text-lg !font-bold">
+                        Upload Your Resume
+                      </Title>
+                      <Text className="text-gray-500 text-sm">
+                        We'll create personalized questions from your resume
+                      </Text>
+                    </div>
                   </div>
-                  <Title level={3} className="mb-2">
-                    Upload Your Resume
-                  </Title>
-                  <Text className="text-gray-600">
-                    We'll analyze your resume to create personalized interview
-                    questions
-                  </Text>
                 </div>
 
                 <ResumeUploader
                   onParsed={handleResumeParsed}
                   existingResume={resume}
                 />
-
                 {resume?.text && (
                   <Alert
                     message="Resume Uploaded Successfully"
                     description="Your resume has been processed. Click Next to continue."
                     type="success"
                     showIcon
-                    className="mt-6 rounded-lg"
+                    className="mt-4 rounded-lg text-sm"
+                    style={{ padding: "12px 16px" }}
                   />
                 )}
               </div>
@@ -317,27 +327,31 @@ const PreInterviewPage = () => {
           )}
 
           {currentStep === 1 && (
-            <div className="p-8">
+            <div className="p-6">
               <div className="max-w-2xl mx-auto">
-                <div className="text-center mb-8">
-                  <div className="w-16 h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <UserOutlined className="text-3xl text-white" />
+                <div className="mb-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30">
+                      <UserOutlined className="text-xl text-white" />
+                    </div>
+                    <div>
+                      <Title level={3} className="!mb-0 !text-lg !font-bold">
+                        Verify Your Information
+                      </Title>
+                      <Text className="text-gray-500 text-sm">
+                        Confirm the details from your resume
+                      </Text>
+                    </div>
                   </div>
-                  <Title level={3} className="mb-2">
-                    Verify Your Information
-                  </Title>
-                  <Text className="text-gray-600">
-                    Please confirm the details we extracted from your resume
-                  </Text>
                 </div>
 
-                <div className="space-y-5">
+                <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Full Name <span className="text-red-500">*</span>
                     </label>
                     <Input
-                      size="large"
+                      size="medium"
                       placeholder="Enter your full name"
                       prefix={<UserOutlined className="text-gray-400" />}
                       className="rounded-lg"
@@ -359,7 +373,7 @@ const PreInterviewPage = () => {
                       Email Address <span className="text-red-500">*</span>
                     </label>
                     <Input
-                      size="large"
+                      size="medium"
                       placeholder="your.email@example.com"
                       prefix={<MailOutlined className="text-gray-400" />}
                       className="rounded-lg"
@@ -381,7 +395,7 @@ const PreInterviewPage = () => {
                       Phone Number (Optional)
                     </label>
                     <Input
-                      size="large"
+                      size="medium"
                       placeholder="Enter your phone number"
                       prefix={<PhoneOutlined className="text-gray-400" />}
                       className="rounded-lg"
@@ -397,12 +411,12 @@ const PreInterviewPage = () => {
           )}
 
           {/* Navigation Footer */}
-          <div className="px-8 py-6 bg-gray-50 border-t border-gray-200">
+          <div className="px-8 py-4 bg-gray-50 border-t border-gray-200">
             <div className="max-w-2xl mx-auto flex justify-between items-center">
               <Button
                 onClick={handleBackToDashboard}
                 icon={<ArrowLeftOutlined />}
-                size="large"
+                size="medium"
                 className="md:hidden"
               >
                 Dashboard
@@ -413,7 +427,7 @@ const PreInterviewPage = () => {
                   <Button
                     onClick={() => dispatch(setCurrentStep(currentStep - 1))}
                     disabled={loading}
-                    size="large"
+                    size="medium"
                   >
                     Previous
                   </Button>
@@ -425,7 +439,7 @@ const PreInterviewPage = () => {
                     onClick={() => dispatch(setCurrentStep(1))}
                     disabled={!resume?.text || loading}
                     icon={<ArrowRightOutlined />}
-                    size="large"
+                    size="medium"
                     className="min-w-[120px]"
                   >
                     Next
@@ -440,7 +454,7 @@ const PreInterviewPage = () => {
                     icon={
                       !isValidatingProfile && !loading && <ArrowRightOutlined />
                     }
-                    size="large"
+                    size="medium"
                     className="min-w-[160px]"
                   >
                     {isValidatingProfile || loading

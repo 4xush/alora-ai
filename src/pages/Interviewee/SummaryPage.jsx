@@ -396,7 +396,7 @@ const SummaryPage = () => {
               key: "1",
               label: (
                 <span>
-                  <InfoCircleOutlined />
+                  <InfoCircleOutlined className="mr-2" />
                   Interview Details
                 </span>
               ),
@@ -465,7 +465,7 @@ const SummaryPage = () => {
               key: "2",
               label: (
                 <span>
-                  <BarChartOutlined />
+                  <BarChartOutlined className="mr-2" />
                   Performance Analysis
                 </span>
               ),
@@ -530,7 +530,7 @@ const SummaryPage = () => {
               key: "3",
               label: (
                 <span>
-                  <BookOutlined />
+                  <BookOutlined className="mr-2" />
                   Question Details
                 </span>
               ),

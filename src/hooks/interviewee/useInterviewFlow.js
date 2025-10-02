@@ -104,7 +104,7 @@ export const useInterviewFlow = () => {
       dispatch(setResume({ text, ...fileMeta }));
 
       try {
-        dispatch(setLoading(true));
+        // No loading overlay when parsing resume
         console.log("🔍 Extracting profile info...");
 
         const profileInfo = await aiService.extractResumeInfo({
@@ -121,13 +121,10 @@ export const useInterviewFlow = () => {
         };
 
         dispatch(setProfile(updatedProfile));
-        dispatch(setLoading(false));
-
         console.log("✅ Profile extraction completed");
       } catch (error) {
         console.error("❌ Profile extraction failed:", error);
         dispatch(setError("Failed to extract profile information from resume"));
-        dispatch(setLoading(false));
       }
     },
     [dispatch, profile],
@@ -156,6 +153,8 @@ export const useInterviewFlow = () => {
 
     try {
       dispatch(clearError());
+      // Show loading overlay when starting interview
+      dispatch(setLoading(true));
 
       // Start the interview session (this creates the interview ID)
       dispatch(startInterview());
@@ -191,6 +190,7 @@ export const useInterviewFlow = () => {
       console.log("✅ Questions generated:", questionsResult.questions.length);
 
       message.success("Interview started! Good luck!");
+      // Loading state will be cleared after navigation when component unmounts
       navigate("/interviewee/interview");
     } catch (error) {
       console.error("❌ Failed to start interview:", error);
@@ -198,6 +198,8 @@ export const useInterviewFlow = () => {
         error.message || "Failed to start interview. Please try again.";
       dispatch(setError(errorMsg));
       message.error(errorMsg);
+      // Make sure to clear loading state if there's an error
+      dispatch(setLoading(false));
     }
   }, [dispatch, profile, resume, navigate]);
 

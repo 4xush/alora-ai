@@ -50,7 +50,7 @@ import {
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { setSearch, setSort } from "../store/interviewerSlice.js";
-
+import { LayoutDashboard } from "lucide-react";
 const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
 
@@ -391,12 +391,19 @@ const InterviewerPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <Title level={2} className="!mb-1">
-                📊 Interview Dashboard
-              </Title>
-              <Text className="text-gray-600">
-                Track candidate interviews and review their performance
-              </Text>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                  <LayoutDashboard className="text-white" size={24} />
+                </div>
+                <div>
+                  <Title level={2} className="!mb-0 !text-2xl !font-bold">
+                    Interview Dashboard
+                  </Title>
+                  <Text className="text-gray-500 text-sm">
+                    Track candidate interviews and review their performance
+                  </Text>
+                </div>
+              </div>
             </div>
           </div>
         </div>
