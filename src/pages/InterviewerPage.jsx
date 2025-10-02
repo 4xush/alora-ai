@@ -24,6 +24,7 @@ import {
   Timeline,
   Rate,
   List,
+  Collapse,
 } from "antd";
 import {
   SearchOutlined,
@@ -38,6 +39,7 @@ import {
   InfoCircleOutlined,
   PhoneOutlined,
   MailOutlined,
+  StarOutlined,
   BookOutlined,
   QuestionCircleOutlined,
   BarChartOutlined,
@@ -50,14 +52,17 @@ import { useDispatch, useSelector } from "react-redux";
 import { setSearch, setSort } from "../store/interviewerSlice.js";
 
 const { Title, Text, Paragraph } = Typography;
+const { Panel } = Collapse;
 
 /**
  * Enhanced Interviewer Dashboard with Production-Grade Detail Drawer
  */
 const InterviewerPage = () => {
   const dispatch = useDispatch();
-  const { candidates, search, sortKey, sortOrder } = useSelector((s) => s.interviewer);
-  
+  const { candidates, search, sortKey, sortOrder } = useSelector(
+    (s) => s.interviewer
+  );
+
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [activeTab, setActiveTab] = useState("1");
@@ -70,9 +75,10 @@ const InterviewerPage = () => {
     candidates.forEach((candidate) => {
       if (!candidate.email) return;
 
-      const attempts = candidate.attempts?.length > 0 
-        ? candidate.attempts 
-        : [{ ...candidate, attemptNumber: 1 }];
+      const attempts =
+        candidate.attempts?.length > 0
+          ? candidate.attempts
+          : [{ ...candidate, attemptNumber: 1 }];
 
       attempts.forEach((attempt, index) => {
         allAttempts.push({
@@ -81,7 +87,7 @@ const InterviewerPage = () => {
           candidateEmail: candidate.email,
           candidatePhone: candidate.phone,
           ...attempt,
-          attemptNumber: attempt.attemptNumber || (index + 1),
+          attemptNumber: attempt.attemptNumber || index + 1,
         });
       });
     });
@@ -91,14 +97,17 @@ const InterviewerPage = () => {
     if (activeTab === "2") {
       filteredData = allAttempts.filter((item) => item.status === "Completed");
     } else if (activeTab === "3") {
-      filteredData = allAttempts.filter((item) => item.status === "In Progress");
+      filteredData = allAttempts.filter(
+        (item) => item.status === "In Progress"
+      );
     }
 
     // Apply search filtering
     if (search) {
-      filteredData = filteredData.filter((item) =>
-        item.candidateName?.toLowerCase().includes(search.toLowerCase()) ||
-        item.candidateEmail?.toLowerCase().includes(search.toLowerCase())
+      filteredData = filteredData.filter(
+        (item) =>
+          item.candidateName?.toLowerCase().includes(search.toLowerCase()) ||
+          item.candidateEmail?.toLowerCase().includes(search.toLowerCase())
       );
     }
 
@@ -131,19 +140,25 @@ const InterviewerPage = () => {
   // Calculate stats
   const stats = useMemo(() => {
     const allAttempts = [];
-    candidates.forEach(candidate => {
-      const attempts = candidate.attempts?.length > 0 
-        ? candidate.attempts 
-        : [candidate];
+    candidates.forEach((candidate) => {
+      const attempts =
+        candidate.attempts?.length > 0 ? candidate.attempts : [candidate];
       allAttempts.push(...attempts);
     });
 
-    const completed = allAttempts.filter(item => item.status === "Completed");
-    const inProgress = allAttempts.filter(item => item.status === "In Progress");
-    const scoresArray = completed.filter(item => item.score != null).map(item => item.score);
-    const avgScore = scoresArray.length > 0 
-      ? Math.round(scoresArray.reduce((a, b) => a + b, 0) / scoresArray.length)
-      : 0;
+    const completed = allAttempts.filter((item) => item.status === "Completed");
+    const inProgress = allAttempts.filter(
+      (item) => item.status === "In Progress"
+    );
+    const scoresArray = completed
+      .filter((item) => item.score != null)
+      .map((item) => item.score);
+    const avgScore =
+      scoresArray.length > 0
+        ? Math.round(
+            scoresArray.reduce((a, b) => a + b, 0) / scoresArray.length
+          )
+        : 0;
 
     return {
       total: allAttempts.length,
@@ -160,28 +175,40 @@ const InterviewerPage = () => {
     const transcript = selectedCandidate.transcript || [];
     const answers = selectedCandidate.answers || [];
     const questions = selectedCandidate.questions || [];
-    
+
     // For in-progress interviews, use current question data
     const totalQuestions = questions.length || transcript.length || 10; // fallback to 10
     const answeredQuestions = transcript.length || answers.length || 0;
     const unansweredQuestions = Math.max(0, totalQuestions - answeredQuestions);
-    
+
     // Calculate score analytics
-    const scoredAnswers = transcript.filter(item => item.score != null);
-    const correctAnswers = scoredAnswers.filter(item => item.score >= 7).length;
-    const incorrectAnswers = scoredAnswers.filter(item => item.score < 7).length;
-    const partialAnswers = scoredAnswers.filter(item => item.score >= 4 && item.score < 7).length;
-    
+    const scoredAnswers = transcript.filter((item) => item.score != null);
+    const correctAnswers = scoredAnswers.filter(
+      (item) => item.score >= 7
+    ).length;
+    const incorrectAnswers = scoredAnswers.filter(
+      (item) => item.score < 7
+    ).length;
+    const partialAnswers = scoredAnswers.filter(
+      (item) => item.score >= 4 && item.score < 7
+    ).length;
+
     // Calculate completion percentage
-    const completionPercentage = totalQuestions > 0 
-      ? Math.round((answeredQuestions / totalQuestions) * 100)
-      : 0;
+    const completionPercentage =
+      totalQuestions > 0
+        ? Math.round((answeredQuestions / totalQuestions) * 100)
+        : 0;
 
     // Calculate average time per question (if available)
-    const timings = answers.map(a => a.secondsSpent).filter(t => t != null);
-    const avgTimePerQuestion = timings.length > 0 
-      ? Math.round(timings.reduce((a, b) => a + b, 0) / timings.length)
-      : null;
+    const timings = answers.map((a) => a.secondsSpent).filter((t) => t != null);
+    const avgTimePerQuestion =
+      timings.length > 0
+        ? Math.round(timings.reduce((a, b) => a + b, 0) / timings.length)
+        : null;
+
+    // Calculate total time spent
+    const totalTimeSpent =
+      timings.length > 0 ? timings.reduce((a, b) => a + b, 0) : null;
 
     // Performance rating
     const score = selectedCandidate.score;
@@ -201,6 +228,7 @@ const InterviewerPage = () => {
       partialAnswers,
       completionPercentage,
       avgTimePerQuestion,
+      totalTimeSpent,
       performanceRating,
       isInProgress: selectedCandidate.status === "In Progress",
       isCompleted: selectedCandidate.status === "Completed",
@@ -214,8 +242,10 @@ const InterviewerPage = () => {
 
   // Helper functions
   const getStatusBadge = (status) => {
-    if (status === "Completed") return <Badge status="success" text="Completed" />;
-    if (status === "In Progress") return <Badge status="processing" text="In Progress" />;
+    if (status === "Completed")
+      return <Badge status="success" text="Completed" />;
+    if (status === "In Progress")
+      return <Badge status="processing" text="In Progress" />;
     return <Badge status="default" text={status || "Pending"} />;
   };
 
@@ -263,6 +293,24 @@ const InterviewerPage = () => {
       ),
     },
     {
+      title: "Role & Config",
+      key: "configuration",
+      render: (_, record) => (
+        <div>
+          <Tag color="blue" className="mb-1">
+            {record.role || record.additionalData?.role || "Full-stack"}
+          </Tag>
+          <br />
+          <div className="text-xs text-gray-500">
+            {record.duration || record.additionalData?.duration || "10"}min •
+            {record.complexity ||
+              record.additionalData?.complexity ||
+              "balanced"}
+          </div>
+        </div>
+      ),
+    },
+    {
       title: "Status",
       dataIndex: "status",
       key: "status",
@@ -274,24 +322,50 @@ const InterviewerPage = () => {
       onFilter: (value, record) => record.status === value,
     },
     {
-      title: "Score",
-      dataIndex: "score",
-      key: "score",
+      title: "Score & Progress",
+      key: "scoreProgress",
       sorter: true,
-      render: (score) => getScoreTag(score),
+      render: (_, record) => (
+        <div>
+          {getScoreTag(record.score)}
+          <div className="text-xs text-gray-500 mt-1">
+            {record.answeredQuestions || 0}/{record.totalQuestions || 0}{" "}
+            answered
+          </div>
+        </div>
+      ),
     },
     {
-      title: "Attempt",
-      dataIndex: "attemptNumber",
-      key: "attemptNumber",
-      render: (num) => `#${num || 1}`,
+      title: "Time & Attempt",
+      key: "timeAttempt",
+      render: (_, record) => (
+        <div>
+          <div className="text-sm">Attempt #{record.attemptNumber || 1}</div>
+          <div className="text-xs text-gray-500">
+            {record.totalTimeSpent
+              ? `${Math.floor(record.totalTimeSpent / 60)}m ${
+                  record.totalTimeSpent % 60
+                }s`
+              : "Time not tracked"}
+          </div>
+        </div>
+      ),
     },
     {
       title: "Date",
       dataIndex: "interviewDate",
       key: "interviewDate",
       sorter: true,
-      render: (date, record) => formatDate(date || record.createdAt),
+      render: (date, record) => (
+        <div>
+          <div className="text-sm">{formatDate(date || record.createdAt)}</div>
+          {record.completedAt && (
+            <div className="text-xs text-gray-500">
+              Completed: {formatDate(record.completedAt)}
+            </div>
+          )}
+        </div>
+      ),
     },
     {
       title: "Actions",
@@ -398,15 +472,27 @@ const InterviewerPage = () => {
           items={[
             {
               key: "1",
-              label: <span><TeamOutlined /> All Interviews</span>,
+              label: (
+                <span>
+                  <TeamOutlined /> All Interviews
+                </span>
+              ),
             },
             {
-              key: "2", 
-              label: <span><CheckCircleOutlined /> Completed</span>,
+              key: "2",
+              label: (
+                <span>
+                  <CheckCircleOutlined /> Completed
+                </span>
+              ),
             },
             {
               key: "3",
-              label: <span><ClockCircleOutlined /> In Progress</span>,
+              label: (
+                <span>
+                  <ClockCircleOutlined /> In Progress
+                </span>
+              ),
             },
           ]}
         />
@@ -421,7 +507,8 @@ const InterviewerPage = () => {
             allowClear
           />
           <Text type="secondary">
-            Showing {processedData.length} interview{processedData.length !== 1 ? 's' : ''}
+            Showing {processedData.length} interview
+            {processedData.length !== 1 ? "s" : ""}
           </Text>
         </div>
 
@@ -440,10 +527,12 @@ const InterviewerPage = () => {
             }}
             onChange={(pagination, filters, sorter) => {
               if (sorter) {
-                dispatch(setSort({
-                  key: sorter.field,
-                  order: sorter.order,
-                }));
+                dispatch(
+                  setSort({
+                    key: sorter.field,
+                    order: sorter.order,
+                  })
+                );
               }
             }}
           />
@@ -463,45 +552,47 @@ const InterviewerPage = () => {
       >
         {selectedCandidate && candidateAnalytics && (
           <div className="h-full flex flex-col">
-            
-
             {/* Content Area - Scrollable */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Header Section */}
-            <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-6 rounded-lg ">
-              <div className="flex items-center space-x-4">
-                <Avatar size={64} icon={<UserOutlined />} className="bg-white text-blue-500" />
-                <div className="flex-1">
-                  <Title level={3} className="!text-white !mb-1">
-                    {selectedCandidate.candidateName}
-                  </Title>
-                  <Space direction="vertical" size={0}>
-                    <Text className="text-blue-100">
-                      <MailOutlined className="mr-2" />
-                      {selectedCandidate.candidateEmail}
-                    </Text>
-                    {selectedCandidate.candidatePhone && (
+              <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-6 rounded-lg ">
+                <div className="flex items-center space-x-4">
+                  <Avatar
+                    size={64}
+                    icon={<UserOutlined />}
+                    className="bg-white text-blue-500"
+                  />
+                  <div className="flex-1">
+                    <Title level={3} className="!text-white !mb-1">
+                      {selectedCandidate.candidateName}
+                    </Title>
+                    <Space direction="vertical" size={0}>
                       <Text className="text-blue-100">
-                        <PhoneOutlined className="mr-2" />
-                        {selectedCandidate.candidatePhone}
+                        <MailOutlined className="mr-2" />
+                        {selectedCandidate.candidateEmail}
                       </Text>
-                    )}
-                  </Space>
-                </div>
-                <div className="text-right">
-                  {getStatusBadge(selectedCandidate.status)}
-                  <div className="mt-2">
-                    {candidateAnalytics.isCompleted && (
-                      <Rate 
-                        disabled 
-                        value={candidateAnalytics.performanceRating} 
-                        className="text-yellow-300" 
-                      />
-                    )}
+                      {selectedCandidate.candidatePhone && (
+                        <Text className="text-blue-100">
+                          <PhoneOutlined className="mr-2" />
+                          {selectedCandidate.candidatePhone}
+                        </Text>
+                      )}
+                    </Space>
+                  </div>
+                  <div className="text-right">
+                    {getStatusBadge(selectedCandidate.status)}
+                    <div className="mt-2">
+                      {candidateAnalytics.isCompleted && (
+                        <Rate
+                          disabled
+                          value={candidateAnalytics.performanceRating}
+                          className="text-yellow-300"
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
               {/* Quick Stats Row */}
               <Row gutter={[16, 16]}>
                 <Col span={8}>
@@ -510,7 +601,9 @@ const InterviewerPage = () => {
                       title="Questions Answered"
                       value={candidateAnalytics.answeredQuestions}
                       suffix={`/ ${candidateAnalytics.totalQuestions}`}
-                      prefix={<CheckCircleOutlined className="text-green-500" />}
+                      prefix={
+                        <CheckCircleOutlined className="text-green-500" />
+                      }
                       valueStyle={{ color: "#52c41a", fontSize: "18px" }}
                     />
                   </Card>
@@ -529,15 +622,27 @@ const InterviewerPage = () => {
                 <Col span={8}>
                   <Card size="small" className="text-center">
                     <Statistic
-                      title={candidateAnalytics.isCompleted ? "Final Score" : "Current Progress"}
-                      value={candidateAnalytics.isCompleted ? selectedCandidate.score : candidateAnalytics.answeredQuestions}
-                      suffix={candidateAnalytics.isCompleted ? "%" : " answered"}
+                      title={
+                        candidateAnalytics.isCompleted
+                          ? "Final Score"
+                          : "Current Progress"
+                      }
+                      value={
+                        candidateAnalytics.isCompleted
+                          ? selectedCandidate.score
+                          : candidateAnalytics.answeredQuestions
+                      }
+                      suffix={
+                        candidateAnalytics.isCompleted ? "%" : " answered"
+                      }
                       prefix={<TrophyOutlined className="text-orange-500" />}
-                      valueStyle={{ 
-                        color: candidateAnalytics.isCompleted 
-                          ? (selectedCandidate.score >= 70 ? "#52c41a" : "#faad14")
-                          : "#722ed1", 
-                        fontSize: "18px" 
+                      valueStyle={{
+                        color: candidateAnalytics.isCompleted
+                          ? selectedCandidate.score >= 70
+                            ? "#52c41a"
+                            : "#faad14"
+                          : "#722ed1",
+                        fontSize: "18px",
                       }}
                     />
                   </Card>
@@ -549,56 +654,244 @@ const InterviewerPage = () => {
                 <Progress
                   percent={candidateAnalytics.completionPercentage}
                   status={candidateAnalytics.isCompleted ? "success" : "active"}
-                  strokeColor={candidateAnalytics.isCompleted ? "#52c41a" : "#1890ff"}
+                  strokeColor={
+                    candidateAnalytics.isCompleted ? "#52c41a" : "#1890ff"
+                  }
                 />
                 <div className="mt-2 text-sm text-gray-600">
                   {candidateAnalytics.isInProgress && (
                     <Text type="secondary">
                       <PlayCircleOutlined className="mr-1" />
-                      Interview in progress - {candidateAnalytics.unansweredQuestions} questions remaining
+                      Interview in progress -{" "}
+                      {candidateAnalytics.unansweredQuestions} questions
+                      remaining
                     </Text>
                   )}
                   {candidateAnalytics.isCompleted && (
                     <Text type="success">
                       <CheckCircleOutlined className="mr-1" />
-                      Interview completed on {formatDate(selectedCandidate.completedAt || selectedCandidate.interviewDate)}
+                      Interview completed on{" "}
+                      {formatDate(
+                        selectedCandidate.completedAt ||
+                          selectedCandidate.interviewDate
+                      )}
                     </Text>
                   )}
                 </div>
               </Card>
 
               {/* Performance Breakdown (for completed interviews) */}
-              {candidateAnalytics.isCompleted && candidateAnalytics.correctAnswers > 0 && (
-                <Card title="Performance Breakdown" size="small">
+              {candidateAnalytics.isCompleted &&
+                candidateAnalytics.correctAnswers > 0 && (
+                  <Card title="Performance Breakdown" size="small">
+                    <Row gutter={[16, 16]}>
+                      <Col span={8}>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-500">
+                            {candidateAnalytics.correctAnswers}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <CheckOutlined className="mr-1" />
+                            Correct
+                          </div>
+                        </div>
+                      </Col>
+                      <Col span={8}>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-orange-500">
+                            {candidateAnalytics.partialAnswers}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <MinusOutlined className="mr-1" />
+                            Partial
+                          </div>
+                        </div>
+                      </Col>
+                      <Col span={8}>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-red-500">
+                            {candidateAnalytics.incorrectAnswers}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <CloseOutlined className="mr-1" />
+                            Incorrect
+                          </div>
+                        </div>
+                      </Col>
+                    </Row>
+                  </Card>
+                )}
+
+              {/* Interview Configuration Details */}
+              <Card title="Interview Configuration" size="small">
+                <Row gutter={[16, 16]}>
+                  <Col span={12}>
+                    <Descriptions column={1} size="small">
+                      <Descriptions.Item label="Job Role">
+                        <Tag color="blue">
+                          {selectedCandidate.role ||
+                            selectedCandidate.additionalData?.role ||
+                            "Full-stack Engineer"}
+                        </Tag>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Duration">
+                        <Tag color="green">
+                          {selectedCandidate.duration ||
+                            selectedCandidate.additionalData?.duration ||
+                            10}{" "}
+                          minutes
+                        </Tag>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Complexity">
+                        <Tag color="orange">
+                          {selectedCandidate.complexity ||
+                            selectedCandidate.additionalData?.complexity ||
+                            "balanced"}
+                        </Tag>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Focus Area">
+                        <Tag color="purple">
+                          {selectedCandidate.focusArea ||
+                            selectedCandidate.additionalData?.focusArea ||
+                            "full-coverage"}
+                        </Tag>
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </Col>
+                  <Col span={12}>
+                    <Descriptions column={1} size="small">
+                      <Descriptions.Item label="Questions Generated">
+                        {selectedCandidate.totalQuestions ||
+                          candidateAnalytics.totalQuestions ||
+                          "N/A"}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Time Spent">
+                        {candidateAnalytics.totalTimeSpent
+                          ? `${Math.floor(
+                              candidateAnalytics.totalTimeSpent / 60
+                            )}m ${candidateAnalytics.totalTimeSpent % 60}s`
+                          : "Not tracked"}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Average per Question">
+                        {candidateAnalytics.avgTimePerQuestion
+                          ? `${candidateAnalytics.avgTimePerQuestion}s`
+                          : "N/A"}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Completion Ratio">
+                        <Progress
+                          percent={candidateAnalytics.completionPercentage}
+                          size="small"
+                          status={
+                            candidateAnalytics.isCompleted
+                              ? "success"
+                              : "active"
+                          }
+                        />
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </Col>
+                </Row>
+              </Card>
+
+              {/* Performance Analytics (Enhanced) */}
+              {candidateAnalytics.isCompleted && (
+                <Card title="Detailed Performance Analytics" size="small">
                   <Row gutter={[16, 16]}>
                     <Col span={8}>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-green-500">{candidateAnalytics.correctAnswers}</div>
-                        <div className="text-sm text-gray-600">
-                          <CheckOutlined className="mr-1" />
-                          Correct
-                        </div>
-                      </div>
+                      <Card
+                        size="small"
+                        className="text-center border-green-200"
+                      >
+                        <Statistic
+                          title="Accuracy Rate"
+                          value={
+                            candidateAnalytics.correctAnswers &&
+                            candidateAnalytics.totalQuestions
+                              ? Math.round(
+                                  (candidateAnalytics.correctAnswers /
+                                    candidateAnalytics.totalQuestions) *
+                                    100
+                                )
+                              : 0
+                          }
+                          suffix="%"
+                          valueStyle={{ color: "#52c41a" }}
+                          prefix={<CheckCircleOutlined />}
+                        />
+                      </Card>
                     </Col>
                     <Col span={8}>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-orange-500">{candidateAnalytics.partialAnswers}</div>
-                        <div className="text-sm text-gray-600">
-                          <MinusOutlined className="mr-1" />
-                          Partial
-                        </div>
-                      </div>
+                      <Card
+                        size="small"
+                        className="text-center border-blue-200"
+                      >
+                        <Statistic
+                          title="Time Efficiency"
+                          value={selectedCandidate.timeEfficiency || 85}
+                          suffix="%"
+                          valueStyle={{ color: "#1890ff" }}
+                          prefix={<ClockCircleOutlined />}
+                        />
+                      </Card>
                     </Col>
                     <Col span={8}>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-red-500">{candidateAnalytics.incorrectAnswers}</div>
-                        <div className="text-sm text-gray-600">
-                          <CloseOutlined className="mr-1" />
-                          Incorrect
-                        </div>
-                      </div>
+                      <Card
+                        size="small"
+                        className="text-center border-purple-200"
+                      >
+                        <Statistic
+                          title="Overall Rating"
+                          value={candidateAnalytics.performanceRating || 4}
+                          suffix="/5"
+                          valueStyle={{ color: "#722ed1" }}
+                          prefix={<StarOutlined />}
+                        />
+                      </Card>
                     </Col>
                   </Row>
+
+                  {/* Difficulty Breakdown */}
+                  {selectedCandidate.difficultyBreakdown && (
+                    <div className="mt-4">
+                      <Title level={5}>Performance by Difficulty</Title>
+                      <Row gutter={[8, 8]}>
+                        {["easy", "medium", "hard"].map((level) => {
+                          const breakdown =
+                            selectedCandidate.difficultyBreakdown[level];
+                          if (!breakdown) return null;
+
+                          return (
+                            <Col span={8} key={level}>
+                              <div
+                                className={`p-3 rounded border ${
+                                  level === "easy"
+                                    ? "border-green-200 bg-green-50"
+                                    : level === "medium"
+                                    ? "border-yellow-200 bg-yellow-50"
+                                    : "border-red-200 bg-red-50"
+                                }`}
+                              >
+                                <div className="text-sm font-medium capitalize">
+                                  {level}
+                                </div>
+                                <div className="text-lg font-bold">
+                                  {breakdown.correct}/{breakdown.total}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Avg:{" "}
+                                  {Math.round(
+                                    (breakdown.totalScore / breakdown.total) *
+                                      10
+                                  ) / 10}
+                                  /10
+                                </div>
+                              </div>
+                            </Col>
+                          );
+                        })}
+                      </Row>
+                    </div>
+                  )}
                 </Card>
               )}
 
@@ -609,7 +902,10 @@ const InterviewerPage = () => {
                     #{selectedCandidate.attemptNumber || 1}
                   </Descriptions.Item>
                   <Descriptions.Item label="Started">
-                    {formatDate(selectedCandidate.createdAt || selectedCandidate.interviewDate)}
+                    {formatDate(
+                      selectedCandidate.createdAt ||
+                        selectedCandidate.interviewDate
+                    )}
                   </Descriptions.Item>
                   {candidateAnalytics.isCompleted && (
                     <Descriptions.Item label="Completed">
@@ -629,7 +925,6 @@ const InterviewerPage = () => {
                   </Descriptions.Item>
                 </Descriptions>
               </Card>
-
               {/* Interview Summary */}
               {selectedCandidate.summary && (
                 <Card title="AI Summary" size="small">
@@ -638,67 +933,83 @@ const InterviewerPage = () => {
               )}
 
               {/* Question by Question Breakdown */}
-              {selectedCandidate.transcript && selectedCandidate.transcript.length > 0 && (
-                <Card title="Question by Question Analysis" size="small">
-                  <List
-                    itemLayout="vertical"
-                    dataSource={selectedCandidate.transcript}
-                    renderItem={(item, index) => (
-                      <List.Item
-                        key={index}
-                        extra={
-                          item.score != null ? (
-                            <Tag
-                              color={
-                                item.score >= 8 ? "green" :
-                                item.score >= 6 ? "orange" : "red"
-                              }
-                              className="ml-2"
-                            >
-                              {item.score}/10
-                            </Tag>
-                          ) : (
-                            <Tag color="default">Pending</Tag>
-                          )
-                        }
-                      >
-                        <List.Item.Meta
-                          avatar={
-                            <Avatar size="small" className="bg-blue-500">
-                              Q{index + 1}
-                            </Avatar>
+              {selectedCandidate.transcript &&
+                selectedCandidate.transcript.length > 0 && (
+                  <Card title="Question by Question Analysis" size="small">
+                    <List
+                      itemLayout="vertical"
+                      dataSource={selectedCandidate.transcript}
+                      renderItem={(item, index) => (
+                        <List.Item
+                          key={index}
+                          extra={
+                            item.score != null ? (
+                              <Tag
+                                color={
+                                  item.score >= 8
+                                    ? "green"
+                                    : item.score >= 6
+                                    ? "orange"
+                                    : "red"
+                                }
+                                className="ml-2"
+                              >
+                                {item.score}/10
+                              </Tag>
+                            ) : (
+                              <Tag color="default">Pending</Tag>
+                            )
                           }
-                          title={
-                            <Text strong className="text-sm">
-                              {item.q}
-                            </Text>
-                          }
-                          description={
-                            <div className="space-y-2">
-                              <div>
-                                <Text className="text-xs text-gray-600">Answer:</Text>
-                                <div className="text-sm">{item.a || "No answer provided"}</div>
-                              </div>
-                              {item.explanation && (
+                        >
+                          <List.Item.Meta
+                            avatar={
+                              <Avatar size="small" className="bg-blue-500">
+                                Q{index + 1}
+                              </Avatar>
+                            }
+                            title={
+                              <Text strong className="text-sm">
+                                {item.q}
+                              </Text>
+                            }
+                            description={
+                              <div className="space-y-2">
                                 <div>
-                                  <Text className="text-xs text-gray-600">Feedback:</Text>
-                                  <div className="text-sm text-gray-700">{item.explanation}</div>
+                                  <Text className="text-xs text-gray-600">
+                                    Answer:
+                                  </Text>
+                                  <div className="text-sm">
+                                    {item.a || "No answer provided"}
+                                  </div>
                                 </div>
-                              )}
-                            </div>
-                          }
-                        />
-                      </List.Item>
-                    )}
-                  />
-                </Card>
-              )}
+                                {item.explanation && (
+                                  <div>
+                                    <Text className="text-xs text-gray-600">
+                                      Feedback:
+                                    </Text>
+                                    <div className="text-sm text-gray-700">
+                                      {item.explanation}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            }
+                          />
+                        </List.Item>
+                      )}
+                    />
+                  </Card>
+                )}
 
               {/* In-Progress Status */}
               {candidateAnalytics.isInProgress && (
                 <Alert
                   message="Interview In Progress"
-                  description={`The candidate is currently answering question ${candidateAnalytics.answeredQuestions + 1} of ${candidateAnalytics.totalQuestions}. Real-time updates will appear here.`}
+                  description={`The candidate is currently answering question ${
+                    candidateAnalytics.answeredQuestions + 1
+                  } of ${
+                    candidateAnalytics.totalQuestions
+                  }. Real-time updates will appear here.`}
                   type="info"
                   showIcon
                   icon={<ClockCircleOutlined />}

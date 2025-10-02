@@ -34,11 +34,6 @@ const App = () => {
           path="/interviewee/summary"
           element={<IntervieweePage step="summary" />}
         />
-        {/* NEW: Settings route */}
-        <Route
-          path="/interviewee/settings"
-          element={<IntervieweePage step="settings" />}
-        />
 
         {/* Interviewer routes */}
         <Route path="/interviewer" element={<InterviewerPage />} />

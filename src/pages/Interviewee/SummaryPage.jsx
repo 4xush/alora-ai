@@ -14,6 +14,12 @@ import {
   Empty,
   Spin,
   message,
+  Tabs,
+  Timeline,
+  Table,
+  Tooltip,
+  Badge,
+  Divider,
 } from "antd";
 import {
   CheckCircleFilled,
@@ -21,18 +27,29 @@ import {
   TrophyFilled,
   HomeOutlined,
   ReloadOutlined,
+  ClockCircleOutlined,
+  BookOutlined,
+  BarChartOutlined,
+  InfoCircleOutlined,
+  ThunderboltOutlined,
+  BulbOutlined,
+  FireOutlined,
+  StarOutlined,
 } from "@ant-design/icons";
 import useInterviewFlow from "../../hooks/interviewee/useInterviewFlow";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
+const { TabPane } = Tabs;
 
 /**
  * SummaryPage shows the interview results and provides feedback
  */
 const SummaryPage = () => {
   const navigate = useNavigate();
+  const settings = useSelector((state) => state.settings);
 
   const {
     profile,
@@ -120,25 +137,93 @@ const SummaryPage = () => {
     const correctAnswers = answers.filter(
       (answer) => answer && answer.score >= 8
     );
-    const averageTime =
-      answers.reduce((acc, answer) => acc + (answer?.secondsSpent || 0), 0) /
-      (answers.length || 1); // Prevent division by zero
 
-    // Group by difficulty
+    // Enhanced time analysis
+    const totalTimeSpent = answers.reduce(
+      (acc, answer) => acc + (answer?.secondsSpent || 0),
+      0
+    );
+    const averageTime = totalTimeSpent / (answers.length || 1);
+
+    // Calculate time efficiency (time spent vs time allocated)
+    const timeEfficiency = questions.map((question, index) => {
+      const answer = answers[index];
+      const timeSpent = answer?.secondsSpent || 0;
+      const timeAllocated = question?.seconds || 60;
+      return {
+        questionId: question.id || index,
+        timeSpent,
+        timeAllocated,
+        efficiency: timeAllocated > 0 ? (timeSpent / timeAllocated) * 100 : 0,
+        wasTimeUp: answer?.wasTimeUp || false,
+        wasSkipped: answer?.wasSkipped || false,
+      };
+    });
+
+    // Group by difficulty with enhanced stats
     const difficultyStats = questions.reduce((acc, question, index) => {
       const level = question?.level || "medium";
       const answer = answers[index];
 
       if (!acc[level]) {
-        acc[level] = { total: 0, correct: 0, totalScore: 0 };
+        acc[level] = {
+          total: 0,
+          correct: 0,
+          totalScore: 0,
+          totalTime: 0,
+          timeOuts: 0,
+          skipped: 0,
+        };
       }
 
       acc[level].total++;
       acc[level].totalScore += answer?.score || 0;
+      acc[level].totalTime += answer?.secondsSpent || 0;
+
       if (answer?.score >= 8) acc[level].correct++;
+      if (answer?.wasTimeUp) acc[level].timeOuts++;
+      if (answer?.wasSkipped) acc[level].skipped++;
 
       return acc;
     }, {});
+
+    // Calculate strengths and weaknesses
+    const performanceByTopic = {};
+    questions.forEach((question, index) => {
+      const topic =
+        question?.metadata?.focusArea || question?.topic || "General";
+      const answer = answers[index];
+      const score = answer?.score || 0;
+
+      if (!performanceByTopic[topic]) {
+        performanceByTopic[topic] = { scores: [], total: 0, count: 0 };
+      }
+
+      performanceByTopic[topic].scores.push(score);
+      performanceByTopic[topic].total += score;
+      performanceByTopic[topic].count++;
+    });
+
+    // Identify strengths (topics with avg score >= 8) and weaknesses (< 6)
+    const strengths = [];
+    const weaknesses = [];
+
+    Object.entries(performanceByTopic).forEach(([topic, data]) => {
+      const avgScore = data.total / data.count;
+      if (avgScore >= 8) {
+        strengths.push({
+          topic,
+          avgScore: Math.round(avgScore * 10) / 10,
+          count: data.count,
+        });
+      } else if (avgScore < 6) {
+        weaknesses.push({
+          topic,
+          avgScore: Math.round(avgScore * 10) / 10,
+          count: data.count,
+        });
+      }
+    });
 
     return {
       totalQuestions: questions.length,
@@ -148,10 +233,17 @@ const SummaryPage = () => {
         (correctAnswers.length / (questions.length || 1)) * 100
       ),
       averageTime: Math.round(averageTime),
+      totalTimeSpent,
       completionRate: Math.round(
         (answeredQuestions.length / (questions.length || 1)) * 100
       ),
       difficultyStats,
+      timeEfficiency,
+      performanceByTopic,
+      strengths,
+      weaknesses,
+      skippedQuestions: answers.filter((a) => a?.wasSkipped).length,
+      timedOutQuestions: answers.filter((a) => a?.wasTimeUp).length,
     };
   };
 
@@ -295,277 +387,311 @@ const SummaryPage = () => {
         </Row>
       </Card>
 
-      {/* Detailed Answers */}
-      <Card
-        title="Question Breakdown"
-        className="mb-8 shadow-sm"
-        tabList={[
-          { key: "overview", tab: "Overview" },
-          { key: "details", tab: "Detailed Feedback" },
-        ]}
-        activeTabKey={activeTab}
-        onTabChange={setActiveTab}
-      >
-        {activeTab === "overview" ? (
-          <List
-            dataSource={
-              questions?.map((q, i) => ({
-                question: q,
-                answer: answers?.[i],
-                index: i,
-              })) || []
+      {/* Enhanced Detailed Analysis with Tabs */}
+      <Card className="mb-8 shadow-sm">
+        <Tabs defaultActiveKey="1" className="detailed-analysis-tabs">
+          {/* Tab 1: Interview Configuration */}
+          <TabPane
+            tab={
+              <span>
+                <InfoCircleOutlined />
+                Interview Details
+              </span>
             }
-            renderItem={({ question, answer, index }) => (
-              <List.Item
-                actions={[
-                  <Tag
-                    key="score"
-                    color={getScoreColor(answer?.score)}
-                    className="px-2 py-1"
-                  >
-                    Score: {answer?.score || "N/A"}
-                  </Tag>,
-                ]}
-              >
-                <List.Item.Meta
-                  avatar={
-                    answer?.score >= 8 ? (
-                      <CheckCircleFilled className="text-xl text-green-500" />
-                    ) : (
-                      <CloseCircleFilled className="text-xl text-red-500" />
-                    )
-                  }
-                  title={
-                    <div className="font-medium">
-                      Q{index + 1}: {question?.text || question?.question}
+            key="1"
+          >
+            <Row gutter={[24, 16]}>
+              <Col xs={24} md={12}>
+                <Card size="small" title="Configuration">
+                  <Space direction="vertical" className="w-full">
+                    <div className="flex justify-between">
+                      <Text>Job Role:</Text>
+                      <Tag color="blue">
+                        {settings?.role || "Not specified"}
+                      </Tag>
                     </div>
-                  }
-                  description={
-                    <div className="mt-1">
-                      <Text type="secondary" className="text-sm">
-                        Your answer:{" "}
-                        <Text
-                          type="secondary"
-                          className="text-sm"
-                          style={{ fontStyle: "italic" }}
-                        >
-                          {(function () {
-                            // Use originalAnswer if available (preferred way)
-                            if (answer?.originalAnswer?.answer) {
-                              const originalAns = answer.originalAnswer.answer;
-                              if (typeof originalAns === "string") {
-                                return (
-                                  originalAns.substring(0, 100) +
-                                  (originalAns.length > 100 ? "..." : "")
-                                );
-                              }
-                              return String(originalAns);
-                            }
+                    <div className="flex justify-between">
+                      <Text>Duration:</Text>
+                      <Tag color="green">
+                        {settings?.duration || 10} minutes
+                      </Tag>
+                    </div>
+                    <div className="flex justify-between">
+                      <Text>Complexity:</Text>
+                      <Tag color="orange">
+                        {settings?.complexity || "balanced"}
+                      </Tag>
+                    </div>
+                    <div className="flex justify-between">
+                      <Text>Focus Area:</Text>
+                      <Tag color="purple">
+                        {settings?.focusArea || "full-coverage"}
+                      </Tag>
+                    </div>
+                  </Space>
+                </Card>
+              </Col>
 
-                            // Try to parse stringified JSON answer
-                            if (
-                              answer?.answer &&
-                              typeof answer.answer === "string"
-                            ) {
-                              try {
-                                // Check if it's a JSON string that needs parsing
-                                if (
-                                  answer.answer.startsWith("{") &&
-                                  answer.answer.includes('"answer":')
-                                ) {
-                                  const parsedAnswer = JSON.parse(
-                                    answer.answer
-                                  );
-                                  if (parsedAnswer.answer) {
-                                    const text = parsedAnswer.answer;
-                                    return typeof text === "string"
-                                      ? text.substring(0, 100) +
-                                          (text.length > 100 ? "..." : "")
-                                      : String(text);
-                                  }
-                                }
-
-                                // Regular string answer
-                                return (
-                                  answer.answer.substring(0, 100) +
-                                  (answer.answer.length > 100 ? "..." : "")
-                                );
-                              } catch (e) {
-                                // If JSON parsing fails, just return the string as is
-                                return (
-                                  answer.answer.substring(0, 100) +
-                                  (answer.answer.length > 100 ? "..." : "")
-                                );
-                              }
-                            }
-
-                            // Handle direct object answers
-                            if (
-                              answer?.answer &&
-                              typeof answer.answer === "object"
-                            ) {
-                              // This might be an MCQ answer object
-                              if (
-                                answer.answer.answer &&
-                                typeof answer.answer.answer === "string"
-                              ) {
-                                const text = answer.answer.answer;
-                                return (
-                                  text.substring(0, 100) +
-                                  (text.length > 100 ? "..." : "")
-                                );
-                              }
-
-                              // Try extracting from options if present
-                              if (
-                                answer.answer.options &&
-                                answer.answer.selectedOption !== undefined
-                              ) {
-                                const selectedIdx =
-                                  answer.answer.selectedOption;
-                                if (answer.answer.options[selectedIdx]) {
-                                  return answer.answer.options[selectedIdx];
-                                }
-                              }
-
-                              // Simplified object display
-                              return "Selected answer";
-                            }
-
-                            // Fallback
-                            return answer?.answer
-                              ? String(answer.answer)
-                              : "No answer provided";
-                          })()}
-                        </Text>
+              <Col xs={24} md={12}>
+                <Card size="small" title="Session Stats">
+                  <Space direction="vertical" className="w-full">
+                    <div className="flex justify-between">
+                      <Text>Total Time:</Text>
+                      <Text strong>
+                        {Math.floor((metrics?.totalTimeSpent || 0) / 60)}m{" "}
+                        {(metrics?.totalTimeSpent || 0) % 60}s
                       </Text>
                     </div>
-                  }
-                />
-              </List.Item>
-            )}
-          />
-        ) : (
-          <Collapse defaultActiveKey={["0"]}>
-            {questions?.map((question, index) => {
-              const answer = answers?.[index];
-              return (
-                <Panel
-                  key={index}
-                  header={
-                    <div className="flex justify-between items-center">
-                      <span>
-                        Question {index + 1}:{" "}
-                        {question?.text || question?.question}
-                      </span>
-                      <Space>
-                        {answer?.score && (
-                          <Tag
-                            color={getScoreColor(answer.score)}
-                            className="ml-4"
-                          >
-                            Score: {answer.score}/10
-                          </Tag>
-                        )}
-                      </Space>
+                    <div className="flex justify-between">
+                      <Text>Questions Skipped:</Text>
+                      <Badge count={metrics?.skippedQuestions || 0} />
                     </div>
-                  }
-                >
-                  <div className="bg-slate-50 p-4 rounded-md mb-4">
-                    <Text strong>Your Answer:</Text>
-                    <Paragraph className="mt-2">
-                      {(function () {
-                        // Use originalAnswer if available (preferred way)
-                        if (answer?.originalAnswer?.answer) {
-                          return answer.originalAnswer.answer;
-                        }
+                    <div className="flex justify-between">
+                      <Text>Timed Out:</Text>
+                      <Badge count={metrics?.timedOutQuestions || 0} />
+                    </div>
+                    <div className="flex justify-between">
+                      <Text>Completion Rate:</Text>
+                      <Text strong>{metrics?.completionRate || 0}%</Text>
+                    </div>
+                  </Space>
+                </Card>
+              </Col>
+            </Row>
+          </TabPane>
 
-                        // Try to parse stringified JSON answer
-                        if (
-                          answer?.answer &&
-                          typeof answer.answer === "string"
-                        ) {
-                          try {
-                            // Check if it's a JSON string that needs parsing
-                            if (
-                              answer.answer.startsWith("{") &&
-                              answer.answer.includes('"answer":')
-                            ) {
-                              const parsedAnswer = JSON.parse(answer.answer);
-                              if (parsedAnswer.answer) {
-                                return parsedAnswer.answer;
+          {/* Tab 2: Performance by Difficulty */}
+          <TabPane
+            tab={
+              <span>
+                <BarChartOutlined />
+                Performance Analysis
+              </span>
+            }
+            key="2"
+          >
+            <Row gutter={[24, 16]}>
+              {metrics?.difficultyStats &&
+                Object.entries(metrics.difficultyStats).map(
+                  ([level, stats]) => (
+                    <Col xs={24} md={8} key={level}>
+                      <Card size="small">
+                        <Statistic
+                          title={`${level.toUpperCase()} Questions`}
+                          value={stats.correct}
+                          suffix={`/ ${stats.total}`}
+                          prefix={
+                            level === "easy" ? (
+                              <BulbOutlined />
+                            ) : level === "medium" ? (
+                              <ThunderboltOutlined />
+                            ) : (
+                              <FireOutlined />
+                            )
+                          }
+                          valueStyle={{
+                            color:
+                              stats.correct / stats.total >= 0.8
+                                ? "#3f8600"
+                                : stats.correct / stats.total >= 0.6
+                                ? "#faad14"
+                                : "#cf1322",
+                          }}
+                        />
+                        <div className="mt-4 space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <Text type="secondary">Avg Score:</Text>
+                            <Text>
+                              {Math.round(
+                                (stats.totalScore / stats.total) * 10
+                              ) / 10}
+                              /10
+                            </Text>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <Text type="secondary">Avg Time:</Text>
+                            <Text>
+                              {Math.round(stats.totalTime / stats.total)}s
+                            </Text>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <Text type="secondary">Timeouts:</Text>
+                            <Text>{stats.timeOuts}</Text>
+                          </div>
+                        </div>
+                      </Card>
+                    </Col>
+                  )
+                )}
+            </Row>
+          </TabPane>
+
+          {/* Tab 3: Question-by-Question Breakdown */}
+          <TabPane
+            tab={
+              <span>
+                <BookOutlined />
+                Question Details
+              </span>
+            }
+            key="3"
+          >
+            <Collapse ghost>
+              {questions?.map((question, index) => {
+                const answer = answers?.[index];
+                const timeEffData = metrics?.timeEfficiency?.[index];
+
+                return (
+                  <Panel
+                    key={index}
+                    header={
+                      <div className="flex justify-between items-center w-full pr-4">
+                        <span>
+                          <Badge
+                            status={
+                              answer?.score >= 8
+                                ? "success"
+                                : answer?.score >= 6
+                                ? "warning"
+                                : "error"
+                            }
+                          />
+                          Q{index + 1}: {question?.text?.substring(0, 80)}...
+                        </span>
+                        <div className="flex gap-2">
+                          <Tag color={getScoreColor(answer?.score)}>
+                            {answer?.score || 0}/10
+                          </Tag>
+                          <Tag color="blue">{timeEffData?.timeSpent || 0}s</Tag>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <div className="space-y-4">
+                      {/* Question Details */}
+                      <div>
+                        <Text strong>Question:</Text>
+                        <Paragraph className="mt-2">
+                          {question?.text || question?.question}
+                        </Paragraph>
+                        <div className="flex gap-2 mb-3">
+                          <Tag>{question?.level || "medium"}</Tag>
+                          <Tag>
+                            {question?.metadata?.focusArea || "general"}
+                          </Tag>
+                          <Tag color="blue">
+                            {question?.seconds || 60}s allocated
+                          </Tag>
+                        </div>
+                      </div>
+
+                      {/* Answer Analysis */}
+                      <div>
+                        <Text strong>Your Answer:</Text>
+                        <Paragraph
+                          className={`mt-2 p-3 rounded ${
+                            answer?.wasSkipped || !answer?.answer
+                              ? "bg-orange-50 border border-orange-200"
+                              : answer?.score < 6
+                              ? "bg-red-50 border border-red-200"
+                              : "bg-gray-50"
+                          }`}
+                        >
+                          {(() => {
+                            // Handle unattempted/skipped questions
+                            if (answer?.wasSkipped || !answer?.answer) {
+                              return (
+                                <span className="text-orange-600 italic">
+                                  Question was not attempted
+                                </span>
+                              );
+                            }
+
+                            // Handle provided answers
+                            if (answer?.answer) {
+                              if (typeof answer.answer === "string") {
+                                return answer.answer;
+                              } else if (typeof answer.answer === "object") {
+                                return JSON.stringify(answer.answer, null, 2);
                               }
                             }
+                            return (
+                              <span className="text-gray-500 italic">
+                                No answer provided
+                              </span>
+                            );
+                          })()}
+                        </Paragraph>
+                      </div>
 
-                            // Non-JSON string answer
-                            return answer.answer;
-                          } catch (e) {
-                            // If parsing fails, just return the raw string
-                            return answer.answer;
-                          }
-                        }
+                      {/* Correct Answer Section - Show for wrong answers and unattempted questions */}
+                      {(answer?.score < 8 ||
+                        answer?.wasSkipped ||
+                        !answer?.answer) && (
+                        <div>
+                          <Text strong className="text-green-600">
+                            <CheckCircleFilled className="mr-1" />
+                            Correct Answer:
+                          </Text>
+                          <Paragraph className="mt-2 p-3 bg-green-50 border border-green-200 rounded">
+                            {(() => {
+                              // Display the correct answer from question data
+                              if (question?.correctAnswer) {
+                                if (
+                                  typeof question.correctAnswer === "string"
+                                ) {
+                                  return question.correctAnswer;
+                                } else if (
+                                  typeof question.correctAnswer === "object"
+                                ) {
+                                  return JSON.stringify(
+                                    question.correctAnswer,
+                                    null,
+                                    2
+                                  );
+                                }
+                              }
 
-                        // Handle direct object answers
-                        if (
-                          answer?.answer &&
-                          typeof answer.answer === "object"
-                        ) {
-                          // This might be an MCQ answer object
-                          if (
-                            answer.answer.answer &&
-                            typeof answer.answer.answer === "string"
-                          ) {
-                            return answer.answer.answer;
-                          }
+                              // Fallback to answer key or explanation
+                              if (question?.answerKey) {
+                                return question.answerKey;
+                              }
 
-                          // Try extracting from options if present
-                          if (
-                            answer.answer.options &&
-                            answer.answer.selectedOption !== undefined
-                          ) {
-                            const selectedIdx = answer.answer.selectedOption;
-                            if (answer.answer.options[selectedIdx]) {
-                              return answer.answer.options[selectedIdx];
-                            }
-                          }
+                              if (question?.explanation) {
+                                return question.explanation;
+                              }
 
-                          // Only show a simplified version of the object, not the full JSON
-                          return "Selected answer";
-                        }
+                              // If no correct answer is available
+                              return (
+                                <span className="text-gray-500 italic">
+                                  Correct answer not available for this question
+                                </span>
+                              );
+                            })()}
+                          </Paragraph>
 
-                        // Last resort fallback
-                        return "No answer provided";
-                      })()}
-                    </Paragraph>
-                  </div>
-
-                  {answer?.explanation && (
-                    <div>
-                      <Text strong>Feedback:</Text>
-                      <Paragraph className="mt-2">
-                        {answer.explanation}
-                      </Paragraph>
+                          {/* Show explanation if available and different from correct answer */}
+                          {question?.explanation &&
+                            question?.explanation !==
+                              question?.correctAnswer && (
+                              <div className="mt-2">
+                                <Text strong className="text-blue-600">
+                                  Explanation:
+                                </Text>
+                                <Paragraph className="mt-1 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
+                                  {question.explanation}
+                                </Paragraph>
+                              </div>
+                            )}
+                        </div>
+                      )}
                     </div>
-                  )}
-
-                  {(question?.idealAnswer ||
-                    question?.correctAnswer ||
-                    answer?.originalAnswer?.correctAnswer) && (
-                    <div className="mt-4 border-t pt-4">
-                      <Text strong>Correct Answer:</Text>
-                      <Paragraph className="mt-2 text-green-700">
-                        {question.idealAnswer ||
-                          question.correctAnswer ||
-                          answer?.originalAnswer?.correctAnswer ||
-                          "Not available"}
-                      </Paragraph>
-                    </div>
-                  )}
-                </Panel>
-              );
-            })}
-          </Collapse>
-        )}
+                  </Panel>
+                );
+              })}
+            </Collapse>
+          </TabPane>
+        </Tabs>
       </Card>
 
       {/* Action Buttons */}

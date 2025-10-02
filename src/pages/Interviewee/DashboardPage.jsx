@@ -19,8 +19,7 @@ import {
   ArrowRightOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  SettingOutlined,
-  UndoOutlined,
+  PlayCircleOutlined,
 } from "@ant-design/icons";
 import { FileText, User, Award, TrendingUp } from "lucide-react";
 import useInterviewFlow from "../../hooks/interviewee/useInterviewFlow";
@@ -34,7 +33,7 @@ import {
 import { removeAbandonedAttempt } from "../../store/interviewerSlice";
 import { STORAGE_KEYS } from "../../utils/storageUtils";
 import ResumeInterviewModal from "../../components/ResumeInterviewModal/ResumeInterviewModal";
-import { useNavigate } from "react-router-dom";
+
 const { Title, Text, Paragraph } = Typography;
 
 /**
@@ -60,7 +59,7 @@ const DashboardPage = () => {
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
-  const navigate = useNavigate();
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDashboardLoading(false);
@@ -143,29 +142,13 @@ const DashboardPage = () => {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <div>
-                <Title level={2} className="mb-1">
-                  Welcome{profile?.name ? `, ${profile.name}` : ""}!
-                </Title>
-                <Text className="text-gray-600">
-                  Track your progress and continue improving your interview
-                  skills
-                </Text>
-              </div>
-              <div className="hidden lg:flex items-center gap-3 pl-8 border-l border-gray-200">
-                <div className="flex items-center justify-center w-10 h-10 bg-violet-100 rounded-lg">
-                  <Award className="w-5 h-5 text-violet-600" />
-                </div>
-                <div>
-                  <Text className="text-xs text-gray-500 block leading-tight">
-                    Total Interviews
-                  </Text>
-                  <Text className="text-2xl font-semibold text-gray-900">
-                    {pastInterviews?.length || 0}
-                  </Text>
-                </div>
-              </div>
+            <div>
+              <Title level={2} className="mb-1">
+                Welcome{profile?.name ? `, ${profile.name}` : ""}!
+              </Title>
+              <Text className="text-gray-600">
+                Track your progress and continue improving your interview skills
+              </Text>
             </div>
             <Button
               type="primary"
@@ -184,36 +167,6 @@ const DashboardPage = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Row gutter={[24, 24]}>
           {/* Quick Stats Cards */}
-          <Col xs={24} md={8}>
-            <div
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => navigate("/interviewee/settings")}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <SettingOutlined className="text-purple-600" />
-                    </div>
-                    <Text className="font-semibold text-gray-700">
-                      Interview Settings
-                    </Text>
-                  </div>
-                  <Text className="text-sm text-gray-600 block mb-3">
-                    Customize interview duration, complexity, and focus areas
-                  </Text>
-                  <Button
-                    type="primary"
-                    size="small"
-                    icon={<SettingOutlined />}
-                    className="flex items-center"
-                  >
-                    Configure Settings
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Col>
           <Col xs={24} md={8}>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
@@ -318,6 +271,30 @@ const DashboardPage = () => {
               </div>
             </div>
           </Col>
+
+          <Col xs={24} md={8}>
+            <div className="bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl shadow-sm p-6 text-white hover:shadow-md transition-shadow">
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Award className="w-5 h-5 text-white" />
+                </div>
+                <Text className="font-semibold text-white">
+                  Total Interviews
+                </Text>
+              </div>
+              <div className="mb-2">
+                <Text className="text-3xl font-bold text-white">
+                  {pastInterviews?.length || 0}
+                </Text>
+              </div>
+              <Text className="text-xs text-white/80">
+                {hasCompletedInterviews
+                  ? "Keep practicing to improve!"
+                  : "Start your first interview today"}
+              </Text>
+            </div>
+          </Col>
+
           {/* Latest Interview Results */}
           <Col span={24}>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
