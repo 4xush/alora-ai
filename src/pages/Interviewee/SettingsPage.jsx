@@ -258,7 +258,7 @@ const SettingsPage = () => {
                 <Settings className="w-6 h-6 text-white" />
               </div>
               <div>
-                <Title level={2} className="mb-1">
+                <Title level={2} className="!mb-0 !text-2xl !font-bold">
                   Interview Settings
                 </Title>
                 <Text className="text-gray-600">
@@ -589,7 +589,7 @@ const SettingsPage = () => {
               <div className="flex items-center space-x-3">
                 <Button
                   type="primary"
-                  size="large"
+                  size="medium"
                   icon={<SaveOutlined />}
                   onClick={handleSave}
                   disabled={!hasChanges}

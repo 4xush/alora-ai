@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Button, Typography, Alert, Spin } from "antd";
+import {
+  Button,
+  Typography,
+  Alert,
+  Spin,
+  message,
+  Modal,
+  notification,
+} from "antd";
 import { useSelector, useDispatch } from "react-redux";
 import { Brain, AlertCircle, Home } from "lucide-react";
 import MCQTest from "../../components/MCQTest/MCQTest";
@@ -25,6 +33,43 @@ const InterviewSessionPage = () => {
     handleBackToDashboard,
     status,
   } = useInterviewFlow();
+
+  // Clean navigation guard - blocks back button only, no browser alerts
+  useEffect(() => {
+    // Setup history state to handle back navigation
+    window.history.pushState(
+      { interviewInProgress: true },
+      "",
+      window.location.href
+    );
+
+    const handlePopState = (event) => {
+      // Prevent back navigation
+      window.history.pushState(
+        { interviewInProgress: true },
+        "",
+        window.location.href
+      );
+
+      // Show clean notification (no browser alert)
+      notification.info({
+        message: "Navigation Restricted",
+        description:
+          "Please use the 'Exit Assessment' button to leave this interview safely.",
+        placement: "topRight",
+        duration: 4,
+        icon: <AlertCircle className="text-blue-500" />,
+      });
+    };
+
+    // Only add popstate listener (remove beforeunload to avoid browser alerts)
+    window.addEventListener("popstate", handlePopState);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
 
   // Effect to handle completed interview - redirect to summary
   useEffect(() => {
@@ -122,10 +167,30 @@ const InterviewSessionPage = () => {
       {/* MCQTest Component handles all the UI */}
       {currentQuestion && <MCQTest onAnswer={handleAnswerSubmit} />}
 
-      {/* Exit Button - Fixed position */}
+      {/* Exit Button - Fixed position with confirmation dialog */}
       <div className="fixed bottom-6 left-6 z-40">
         <Button
-          onClick={handleBackToDashboard}
+          onClick={() => {
+            // Professional exit flow with confirmation
+            const modal = {
+              title: "Exit Assessment?",
+              content:
+                "Are you sure you want to exit? Your progress will be saved, but this interview session will end.",
+              okText: "Exit Assessment",
+              cancelText: "Continue Assessment",
+              okButtonProps: { danger: true },
+              onOk: () => {
+                message.info("Exiting assessment...");
+                handleBackToDashboard();
+              },
+              maskClosable: true,
+              centered: true,
+              className: "interview-exit-modal",
+            };
+
+            // Display modal
+            Modal.confirm(modal);
+          }}
           icon={<Home className="w-4 h-4" />}
           size="medium"
           className="shadow-lg hover:shadow-xl transition-shadow"
