@@ -156,11 +156,11 @@ const PreInterviewPage = () => {
       dispatch(setProfile(formFields));
       setLocalError("");
       dispatch(clearError());
-      handleStartInterview();
+      await handleStartInterview(); // Wait for this to complete
+      // Don't set isValidatingProfile to false here as we're navigating away
     } catch (err) {
       setLocalError(err.message || "Please complete your profile to continue");
-    } finally {
-      setIsValidatingProfile(false);
+      setIsValidatingProfile(false); // Only set to false on error
     }
   };
 

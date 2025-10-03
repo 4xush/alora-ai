@@ -190,7 +190,11 @@ export const useInterviewFlow = () => {
       console.log("✅ Questions generated:", questionsResult.questions.length);
 
       message.success("Interview started! Good luck!");
-      // Loading state will be cleared after navigation when component unmounts
+
+      // Clear loading state before navigation to avoid conflict with InterviewSessionPage
+      dispatch(setLoading(false));
+
+      // Navigate to interview page
       navigate("/interviewee/interview");
     } catch (error) {
       console.error("❌ Failed to start interview:", error);

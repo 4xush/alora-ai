@@ -14,6 +14,7 @@ const { Title, Text } = Typography;
  */
 const InterviewSessionPage = () => {
   const navigate = useNavigate();
+  const [localLoading, setLocalLoading] = useState(true); // Local loading state
   const {
     questions,
     answers,
@@ -32,6 +33,15 @@ const InterviewSessionPage = () => {
       navigate("/interviewee/summary", { replace: true });
     }
   }, [status, navigate]);
+
+  // Effect to control local loading state based on questions availability
+  useEffect(() => {
+    if (questions && questions.length > 0) {
+      // Questions are loaded, hide loading after a small delay for smooth transition
+      const timer = setTimeout(() => setLocalLoading(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [questions]);
 
   // Check if we're at the last question
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
@@ -60,6 +70,7 @@ const InterviewSessionPage = () => {
 
   // Show loading state while preparing interview
   if (
+    localLoading ||
     !questions ||
     questions.length === 0 ||
     (loading && currentQuestionIndex === 0)

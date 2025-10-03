@@ -96,7 +96,7 @@ const RouteLoader = ({ children }) => {
       dispatch(uiActions.setLoading(false));
       if (loadingTimerId) clearTimeout(loadingTimerId);
     };
-  }, []);
+  }, [dispatch, loadingTimerId]);
 
   return children;
 };
