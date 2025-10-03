@@ -356,10 +356,16 @@ export const useInterviewFlow = () => {
 
             // Complete the interview
             dispatch(completeInterview(scoringResult));
-
             // Get updated answers from state after recording
             const currentState = store.getState();
             const finalAnswers = currentState.interviewee.answers;
+
+            // Calculate metrics like SummaryPage does
+            const totalTimeSpent = finalAnswers.reduce((acc, answer) => acc + (answer?.secondsSpent || 0), 0);
+            const answeredQuestions = finalAnswers.filter(answer =>
+              answer && answer.answer !== undefined && !answer.wasSkipped
+            ).length;
+            const avgTimePerQuestion = totalTimeSpent > 0 ? Math.round(totalTimeSpent / finalAnswers.length) : 0;
 
             // Sync final results with interviewer dashboard
             const transcript = questions.map((q, i) => {
@@ -383,13 +389,17 @@ export const useInterviewFlow = () => {
                   summary: scoringResult.summary,
                   resumeText: resume.text,
                   transcript,
+                  // ADDED MISSING FIELDS FOR INTERVIEWER PAGE:
+                  totalTimeSpent,
+                  answeredQuestions,
+                  totalQuestions: questions.length,
+                  avgTimePerQuestion,
                   completedAt: new Date().toISOString(),
                   interviewDate: new Date().toISOString(),
                   isFinalUpdate: true,
                 },
               }),
             );
-
             message.success({
               content: "Evaluation complete! Showing your results...",
               key: "interview-completion",
@@ -409,6 +419,13 @@ export const useInterviewFlow = () => {
             const currentState = store.getState();
             const finalAnswers = currentState.interviewee.answers;
 
+            // Calculate metrics for fallback as well
+            const totalTimeSpent = finalAnswers.reduce((acc, answer) => acc + (answer?.secondsSpent || 0), 0);
+            const answeredQuestions = finalAnswers.filter(answer =>
+              answer && answer.answer !== undefined && !answer.wasSkipped
+            ).length;
+            const avgTimePerQuestion = totalTimeSpent > 0 ? Math.round(totalTimeSpent / finalAnswers.length) : 0;
+
             const fallbackResult = {
               totalScore: Math.round(Math.random() * 40 + 50),
               summary:
@@ -421,7 +438,7 @@ export const useInterviewFlow = () => {
 
             dispatch(completeInterview(fallbackResult));
 
-            // Sync with fallback data
+            // Sync with fallback data - ADDED MISSING METRICS
             dispatch(
               syncInterviewState({
                 interviewId: currentInterviewId,
@@ -431,6 +448,11 @@ export const useInterviewFlow = () => {
                   score: fallbackResult.totalScore,
                   summary: fallbackResult.summary,
                   resumeText: resume.text,
+                  // ADDED MISSING FIELDS FOR INTERVIEWER PAGE:
+                  totalTimeSpent,
+                  answeredQuestions,
+                  totalQuestions: questions.length,
+                  avgTimePerQuestion,
                   completedAt: new Date().toISOString(),
                   hasIssues: true,
                 },
