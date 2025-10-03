@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   Typography,
@@ -65,6 +65,21 @@ const SummaryPage = () => {
   // Local state
   const [activeTab, setActiveTab] = useState("overview");
 
+  // Effect to block any attempts to go back to interview screen
+  useEffect(() => {
+    // Update history to prevent going back to interview
+    // This is a double-protection mechanism in case other redirects fail
+    window.history.pushState(null, "", window.location.href);
+
+    // When user clicks back, push them forward again
+    const handlePopState = () => {
+      window.history.pushState(null, "", window.location.href);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   // Safe navigation functions with fallback
   const safeNavigateToDashboard = () => {
     console.log("Navigating to dashboard");
@@ -73,13 +88,14 @@ const SummaryPage = () => {
         handleBackToDashboard();
       } else {
         console.warn("handleBackToDashboard is undefined, using fallback");
-        navigate("/interviewee/dashboard");
+        // Use replace: true to avoid back-button issues
+        navigate("/interviewee/dashboard", { replace: true });
       }
     } catch (err) {
       console.error("Navigation error:", err);
       message.error("Navigation error, redirecting...");
       // Ultimate fallback
-      window.location.href = "/interviewee/dashboard";
+      window.location.replace("/interviewee/dashboard");
     }
   };
 
@@ -90,13 +106,14 @@ const SummaryPage = () => {
         handleRetakeInterview();
       } else {
         console.warn("handleRetakeInterview is undefined, using fallback");
-        navigate("/interviewee/pre-interview");
+        // Use replace: true to avoid back-button issues
+        navigate("/interviewee/pre-interview", { replace: true });
       }
     } catch (err) {
       console.error("Navigation error:", err);
       message.error("Navigation error, redirecting...");
       // Ultimate fallback
-      window.location.href = "/interviewee/pre-interview";
+      window.location.replace("/interviewee/pre-interview");
     }
   };
 
@@ -688,14 +705,14 @@ const SummaryPage = () => {
         >
           Return to Dashboard
         </Button>
-        <Button
+        {/* <Button
           type="primary"
           icon={<ReloadOutlined />}
           size="large"
           onClick={safeRetakeInterview}
         >
           Take Another Interview
-        </Button>
+        </Button> */}
       </div>
     </div>
   );

@@ -317,17 +317,24 @@ export const useInterviewFlow = () => {
         await dispatch(recordAnswer(answerData));
 
         // Show appropriate message
-        if (wasSkipped) {
-          message.info("Question skipped. Moving to next question...");
-        } else if (wasTimeUp || fromAutoSubmit) {
-          message.success("Answer recorded! Moving to next question...");
-        }
-
         if (!isLast) {
+          if (wasSkipped) {
+            message.info("Question skipped. Moving to next question...");
+          } else if (wasTimeUp || fromAutoSubmit) {
+            message.success("Answer recorded! Moving to next question...");
+          } else {
+            message.success("Answer recorded! Moving to next question...");
+          }
+
           // Move to next question
           dispatch(nextQuestion());
         } else {
-          // Last question - start scoring
+          // Last question - show final message and start scoring
+          if (wasSkipped) {
+            message.info("Final question skipped. Completing assessment...");
+          } else {
+            message.success("Final answer recorded! Completing assessment...");
+          }
           console.log("🏁 Last question processed, starting scoring...");
 
           try {
@@ -386,8 +393,10 @@ export const useInterviewFlow = () => {
             });
 
             // Navigate to summary after a short delay
+            // Use replace:true to replace the current history entry instead of adding a new one
+            // This prevents users from navigating back to the interview page
             setTimeout(() => {
-              navigate("/interviewee/summary");
+              navigate("/interviewee/summary", { replace: true });
             }, 1000);
           } catch (scoringError) {
             console.error("❌ Scoring failed:", scoringError);

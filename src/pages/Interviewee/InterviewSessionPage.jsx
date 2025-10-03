@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { Brain, AlertCircle, Home } from "lucide-react";
 import MCQTest from "../../components/MCQTest/MCQTest";
 import useInterviewFlow from "../../hooks/interviewee/useInterviewFlow";
+import { useNavigate } from "react-router-dom";
 
 const { Title, Text } = Typography;
 
@@ -12,6 +13,7 @@ const { Title, Text } = Typography;
  * Renders the MCQTest component which handles all UI and question logic
  */
 const InterviewSessionPage = () => {
+  const navigate = useNavigate();
   const {
     questions,
     answers,
@@ -20,7 +22,16 @@ const InterviewSessionPage = () => {
     error,
     handleAnswerSubmit,
     handleBackToDashboard,
+    status,
   } = useInterviewFlow();
+
+  // Effect to handle completed interview - redirect to summary
+  useEffect(() => {
+    if (status === "completed") {
+      // Interview is already completed, redirect to summary
+      navigate("/interviewee/summary", { replace: true });
+    }
+  }, [status, navigate]);
 
   // Check if we're at the last question
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
@@ -36,6 +47,16 @@ const InterviewSessionPage = () => {
   const currentQuestion = hasActiveQuestion
     ? questions[currentQuestionIndex]
     : null;
+
+  // First check if interview is completed to prevent flicker
+  if (status === "completed") {
+    // Return a blank loading div that will be quickly replaced by the summary page
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   // Show loading state while preparing interview
   if (

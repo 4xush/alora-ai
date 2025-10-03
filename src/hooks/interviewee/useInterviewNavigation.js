@@ -26,7 +26,10 @@ export const useInterviewNavigation = (step) => {
         // Check if the interview was just completed and we need to go to summary
         if (status === 'completed' && step === 'interview') {
             console.log('useInterviewNavigation: Interview completed, redirecting to summary');
-            navigate('/interviewee/summary');
+
+            // Replace the current history entry instead of adding a new one
+            // This prevents users from navigating back to the interview page
+            navigate('/interviewee/summary', { replace: true });
             return;
         }
 
