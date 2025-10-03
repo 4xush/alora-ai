@@ -10,6 +10,7 @@ import {
   Tag,
   Spin,
   Modal,
+  message,
 } from "antd";
 import {
   TrophyOutlined,
@@ -22,7 +23,7 @@ import {
   SettingOutlined,
   UndoOutlined,
 } from "@ant-design/icons";
-import { FileText, User, Award,Sparkles, TrendingUp } from "lucide-react";
+import { FileText, User, Award, Sparkles, TrendingUp } from "lucide-react";
 import useInterviewFlow from "../../hooks/interviewee/useInterviewFlow";
 import useInterviewPersistence from "../../hooks/interviewee/useInterviewPersistence";
 import { useDispatch, useSelector } from "react-redux";
@@ -30,8 +31,14 @@ import {
   selectLatestInterview,
   resumeInterview,
   resetInterview,
+  clearAllHistory,
 } from "../../store/intervieweeSlice";
-import { removeAbandonedAttempt } from "../../store/interviewerSlice";
+
+import { DeleteOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
+import {
+  removeAbandonedAttempt,
+  clearAllCandidates,
+} from "../../store/interviewerSlice";
 import { STORAGE_KEYS } from "../../utils/storageUtils";
 import ResumeInterviewModal from "../../components/ResumeInterviewModal/ResumeInterviewModal";
 import { useNavigate } from "react-router-dom";
@@ -125,6 +132,99 @@ const DashboardPage = () => {
     // Finally, navigate to the start page
     handleStartNewInterview();
   };
+  const handleResetAllData = () => {
+    Modal.confirm({
+      title: <span className="text-base font-semibold">Reset All Data</span>,
+      icon: <ExclamationCircleOutlined className="text-red-500" />,
+      content: (
+        <div className="space-y-3 -ml-1">
+          <p className="text-gray-600 text-sm">
+            This will permanently delete all of your data:
+          </p>
+          <div className="bg-gray-50 rounded-lg p-2.5 space-y-1">
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+              Profile information
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+              Interview history and results
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+              Uploaded resume
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+              Settings and preferences
+            </div>
+          </div>
+          <div className="flex items-start gap-2 p-2.5 bg-red-50 border border-red-100 rounded-lg">
+            <ExclamationCircleOutlined className="text-red-500 text-sm mt-0.5" />
+            <p className="text-sm text-red-700 font-medium">
+              This action cannot be undone.
+            </p>
+          </div>
+        </div>
+      ),
+      okText: "Reset Everything",
+      okType: "danger",
+      cancelText: "Cancel",
+      width: 420,
+      centered: true,
+      styles: {
+        body: {
+          paddingRight: "12px",
+        },
+      },
+      okButtonProps: {
+        size: "middle",
+      },
+      cancelButtonProps: {
+        size: "middle",
+      },
+      onOk() {
+        try {
+          // 1. Clear Redux state
+          dispatch(clearAllHistory());
+          dispatch(clearAllCandidates());
+
+          // 2. Clear relevant localStorage items
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (
+              key &&
+              (key.includes("interview") ||
+                key.includes("profile") ||
+                key.includes("resume") ||
+                key.includes("settings") ||
+                key.includes("candidate"))
+            ) {
+              keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach((key) => localStorage.removeItem(key));
+
+          // 3. Clear sessionStorage
+          sessionStorage.clear();
+
+          message.success({
+            content: "All data has been reset successfully",
+            duration: 2,
+          });
+
+          // 4. Reload page to ensure clean state
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } catch (error) {
+          console.error("Failed to reset data:", error);
+          message.error("Failed to reset data. Please try again.");
+        }
+      },
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -167,6 +267,7 @@ const DashboardPage = () => {
                 Start New Interview
               </Button>
             </div>
+            {/* Removed reset button from here - moved to bottom of page */}
           </div>
         </div>
       </div>
@@ -580,6 +681,19 @@ const DashboardPage = () => {
             </Col>
           )}
         </Row>
+      </div>
+
+      {/* Professional minimal reset button in bottom right corner */}
+      <div className="hidden md:block fixed bottom-6 right-6 z-40">
+        <Button
+          type="text"
+          size="small"
+          icon={<SettingOutlined />}
+          onClick={handleResetAllData}
+          className="bg-white bg-opacity-80 shadow-sm rounded-full px-3 py-1 text-xs text-gray-500 hover:text-red-600 hover:bg-gray-50 transition-colors flex items-center gap-1"
+        >
+          <span className="opacity-70">Reset Data</span>
+        </Button>
       </div>
 
       {/* Mobile FAB for Start Interview */}
