@@ -4,6 +4,7 @@ import LandingPage from "./pages/LandingPage.jsx";
 import AppLayout from "./layouts/AppLayout.jsx";
 import IntervieweePage from "./pages/Interviewee/IntervieweePage";
 import InterviewerPage from "./pages/InterviewerPage.jsx";
+import CandidatePage from "./pages/CandidatePage.jsx";
 import {
   RouteLoader,
   LoadingOverlay,
@@ -51,7 +52,14 @@ const App = () => {
           />
 
           {/* Interviewer routes */}
-          <Route path="/interviewer" element={<InterviewerPage />} />
+          <Route
+            path="/interviewer"
+            element={<InterviewerPage />}
+          />
+          <Route
+            path="/interviewer/candidate/:email"
+            element={<CandidatePage />}
+          />
         </Route>
 
         {/* Fallback route */}

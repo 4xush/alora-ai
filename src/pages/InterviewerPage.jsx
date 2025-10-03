@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   Table,
   Typography,
@@ -7,48 +8,45 @@ import {
   Badge,
   Tag,
   Avatar,
-  Drawer,
-  Tabs,
   Card,
   Statistic,
-  List,
   Space,
   Row,
   Col,
   Input,
-  Collapse,
   Empty,
+  Spin,
 } from "antd";
 import {
   UserOutlined,
   EyeOutlined,
   SearchOutlined,
-  MailOutlined,
-  PhoneOutlined,
   TeamOutlined,
   TrophyOutlined,
   BarChartOutlined,
   ClockCircleOutlined,
 } from "@ant-design/icons";
+import { LayoutDashboard } from "lucide-react";
 import { clearAllCandidates } from "../store/interviewerSlice";
 
-const { Title, Text, Paragraph } = Typography;
-const { Panel } = Collapse;
+const { Title, Text } = Typography;
 
 /**
- * Enhanced Interviewer Dashboard with Production-Grade Detail Drawer
- * Now with candidate-centric implementation
+ * Enhanced Interviewer Dashboard
+ * Candidate-centric implementation with clean UI
  */
 const InterviewerPage = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { candidates, search, sortKey, sortOrder } = useSelector(
     (s) => s.interviewer
   );
 
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
-  const [selectedAttempt, setSelectedAttempt] = useState(null);
-  const [drawerVisible, setDrawerVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState("1");
+  // Handler for viewing candidate details
+  const handleViewCandidate = (candidateEmail) => {
+    // Navigate to existing dashboard but filtered for this candidate
+    navigate(`/interviewer/candidate/${encodeURIComponent(candidateEmail)}`);
+  };
 
   // Process data to be candidate-centric
   const processedData = useMemo(() => {
@@ -165,43 +163,6 @@ const InterviewerPage = () => {
     };
   }, [candidates]);
 
-  // Calculate detailed analytics for selected candidate
-  const candidateAnalytics = useMemo(() => {
-    if (!selectedCandidate) return null;
-
-    const attempts = selectedCandidate.allAttempts || [];
-    const questionData = attempts.flatMap(
-      (attempt) =>
-        attempt.questions?.map((q) => ({
-          ...q,
-          attemptId: attempt.id,
-          attemptNumber: attempt.attemptNumber,
-        })) || []
-    );
-
-    return {
-      totalQuestions: questionData.length,
-      questionsByDifficulty: {
-        easy: questionData.filter((q) => q.difficulty === "Easy").length,
-        medium: questionData.filter((q) => q.difficulty === "Medium").length,
-        hard: questionData.filter((q) => q.difficulty === "Hard").length,
-      },
-      averageResponseTime: questionData.length
-        ? Math.round(
-            questionData.reduce((sum, q) => sum + (q.responseTime || 0), 0) /
-              questionData.length
-          )
-        : 0,
-    };
-  }, [selectedCandidate]);
-
-  // Handler for viewing attempt details
-  const handleViewAttemptDetails = (attempt) => {
-    setSelectedAttempt(attempt);
-    // Switch to the attempt details tab if needed
-    setActiveTab("2");
-  };
-
   // Helper functions
   const getStatusBadge = (status) => {
     if (!status) return <Badge status="default" text="Unknown" />;
@@ -219,12 +180,32 @@ const InterviewerPage = () => {
   };
 
   const getScoreTag = (score) => {
-    if (score === null || score === undefined) return <Tag>No Score</Tag>;
+    if (score === null || score === undefined)
+      return <Tag color="default">No Score</Tag>;
 
-    if (score >= 80) return <Tag color="success">{score}%</Tag>;
-    if (score >= 60) return <Tag color="blue">{score}%</Tag>;
-    if (score >= 40) return <Tag color="warning">{score}%</Tag>;
-    return <Tag color="error">{score}%</Tag>;
+    if (score >= 80)
+      return (
+        <Tag color="success" className="font-medium">
+          {score}%
+        </Tag>
+      );
+    if (score >= 60)
+      return (
+        <Tag color="blue" className="font-medium">
+          {score}%
+        </Tag>
+      );
+    if (score >= 40)
+      return (
+        <Tag color="warning" className="font-medium">
+          {score}%
+        </Tag>
+      );
+    return (
+      <Tag color="error" className="font-medium">
+        {score}%
+      </Tag>
+    );
   };
 
   const formatDate = (dateString) => {
@@ -244,14 +225,6 @@ const InterviewerPage = () => {
     }
   };
 
-  const formatDuration = (seconds) => {
-    if (!seconds) return "N/A";
-
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}m ${secs}s`;
-  };
-
   // Updated columns to be candidate-centric
   const columns = [
     {
@@ -261,9 +234,14 @@ const InterviewerPage = () => {
       sorter: true,
       render: (text, record) => (
         <div className="flex items-center">
-          <Avatar size="small" icon={<UserOutlined />} className="mr-2" />
+          <Avatar
+            size="default"
+            className="bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md mr-3"
+          >
+            {text?.charAt(0)?.toUpperCase() || "?"}
+          </Avatar>
           <div>
-            <div className="font-medium">{text}</div>
+            <div className="font-medium text-gray-900">{text}</div>
             <div className="text-xs text-gray-500">{record.candidateEmail}</div>
           </div>
         </div>
@@ -274,7 +252,7 @@ const InterviewerPage = () => {
       key: "interviewStats",
       render: (_, record) => (
         <div>
-          <div className="text-sm">
+          <div className="text-sm font-medium text-gray-900">
             {record.totalAttempts}{" "}
             {record.totalAttempts === 1 ? "attempt" : "attempts"}
           </div>
@@ -308,7 +286,9 @@ const InterviewerPage = () => {
       key: "latestDate",
       sorter: true,
       render: (_, record) => (
-        <div className="text-sm">{formatDate(record.latestDate)}</div>
+        <div className="text-sm text-gray-600">
+          {formatDate(record.latestDate)}
+        </div>
       ),
     },
     {
@@ -316,30 +296,42 @@ const InterviewerPage = () => {
       key: "actions",
       render: (_, record) => (
         <Button
-          type="link"
+          type="primary"
+          ghost
           icon={<EyeOutlined />}
-          onClick={() => {
-            setSelectedCandidate({ ...record, attempts: record.allAttempts });
-            setDrawerVisible(true);
-          }}
+          onClick={() => handleViewCandidate(record.candidateEmail)}
+          className="border-blue-400 text-blue-600 hover:bg-blue-50"
         >
           View Profile
         </Button>
       ),
     },
   ];
-
-  // Render function
   return (
-    <div className="p-4 space-y-4">
-      <Card
-        title={
-          <div className="flex justify-between items-center">
-            <span>Interviewer Dashboard</span>
-            <div className="space-x-2">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                  <LayoutDashboard className="text-white" size={24} />
+                </div>
+                <div>
+                  <Title level={2} className="!mb-0 !text-2xl !font-bold">
+                    Interviewer Dashboard
+                  </Title>
+                  <Text className="text-gray-500 text-sm">
+                    Manage candidates and review their interview performance
+                  </Text>
+                </div>
+              </div>
+            </div>
+            <div>
               <Input.Search
                 placeholder="Search candidates..."
-                style={{ width: 250 }}
+                style={{ width: 300 }}
                 allowClear
                 onChange={(e) =>
                   dispatch({
@@ -351,379 +343,98 @@ const InterviewerPage = () => {
               />
             </div>
           </div>
-        }
-      >
-        <div className="mb-4">
-          <Row gutter={16}>
-            <Col span={6}>
-              <Card size="small">
-                <Statistic
-                  title="Total Candidates"
-                  value={stats.totalCandidates}
-                  prefix={<UserOutlined />}
-                />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card size="small">
-                <Statistic
-                  title="Total Interviews"
-                  value={stats.totalInterviews}
-                  prefix={<TeamOutlined />}
-                />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card size="small">
-                <Statistic
-                  title="Completed Interviews"
-                  value={stats.completedInterviews}
-                  prefix={<ClockCircleOutlined />}
-                />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card size="small">
-                <Statistic
-                  title="Average Score"
-                  value={stats.averageScore || "N/A"}
-                  suffix="%"
-                  valueStyle={{ color: "#3f8600" }}
-                  prefix={<TrophyOutlined />}
-                />
-              </Card>
-            </Col>
-          </Row>
         </div>
+      </div>
 
-        <Table
-          columns={columns}
-          dataSource={processedData}
-          rowKey="candidateEmail"
-          onChange={(pagination, filters, sorter) => {
-            dispatch({
-              type: "interviewer/setSort",
-              payload: {
-                key: sorter.field || "bestScore",
-                order: sorter.order || "descend",
-              },
-            });
-          }}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showTotal: (total) => `Total ${total} candidates`,
-          }}
-          locale={{
-            emptyText: (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No candidates found"
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-2 sm:px-3 lg:px-2 py-4">
+        {/* Stats Cards */}
+        <Row gutter={[16, 16]} className="mb-4">
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="border-0 shadow-sm">
+              <Statistic
+                title="Total Candidates"
+                value={stats.totalCandidates}
+                prefix={<UserOutlined className="text-blue-500" />}
+                valueStyle={{ color: "#1890ff" }}
               />
-            ),
-          }}
-        />
-      </Card>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="border-0 shadow-sm">
+              <Statistic
+                title="Total Interviews"
+                value={stats.totalInterviews}
+                prefix={<TeamOutlined className="text-green-500" />}
+                valueStyle={{ color: "#52c41a" }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="border-0 shadow-sm">
+              <Statistic
+                title="Completed Interviews"
+                value={stats.completedInterviews}
+                prefix={<ClockCircleOutlined className="text-orange-500" />}
+                valueStyle={{ color: "#faad14" }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="border-0 shadow-sm">
+              <Statistic
+                title="Average Score"
+                value={stats.averageScore || "N/A"}
+                suffix="%"
+                prefix={<TrophyOutlined className="text-yellow-500" />}
+                valueStyle={{ color: "#3f8600" }}
+              />
+            </Card>
+          </Col>
+        </Row>
 
-      {/* Candidate Detail Drawer */}
-      <Drawer
-        title="Candidate Details"
-        placement="right"
-        size="large"
-        onClose={() => {
-          setDrawerVisible(false);
-          setSelectedCandidate(null);
-          setSelectedAttempt(null);
-        }}
-        open={drawerVisible}
-        extra={
-          <Space>
-            <Button onClick={() => setDrawerVisible(false)}>Close</Button>
-          </Space>
-        }
-      >
-        {selectedCandidate ? (
-          <Tabs
-            activeKey={activeTab}
-            onChange={setActiveTab}
-            items={[
-              {
-                key: "1",
-                label: "Candidate Profile",
-                children: (
-                  <div className="h-full flex flex-col">
-                    {/* Header with candidate info */}
-                    <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-6 rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <Avatar
-                          size={64}
-                          icon={<UserOutlined />}
-                          className="bg-white text-blue-500"
-                        />
-                        <div className="flex-1">
-                          <Title level={3} className="!text-white !mb-1">
-                            {selectedCandidate.candidateName}
-                          </Title>
-                          <Space direction="vertical" size={0}>
-                            <Text className="text-blue-100">
-                              <MailOutlined className="mr-2" />
-                              {selectedCandidate.candidateEmail}
-                            </Text>
-                            {selectedCandidate.candidatePhone && (
-                              <Text className="text-blue-100">
-                                <PhoneOutlined className="mr-2" />
-                                {selectedCandidate.candidatePhone}
-                              </Text>
-                            )}
-                          </Space>
-                        </div>
-                      </div>
-                    </div>
+        {/* Candidates Table */}
+        <Card className="border-0 shadow-sm">
+          <div className="mb-4">
+            <Title level={4} className="!mb-2">
+              All Candidates
+            </Title>
+            <Text type="secondary">
+              View and manage candidate interview records
+            </Text>
+          </div>
 
-                    {/* Candidate Statistics */}
-                    <Card
-                      title="Candidate Overview"
-                      size="small"
-                      className="mt-4"
-                    >
-                      <Row gutter={[16, 16]}>
-                        <Col span={8}>
-                          <Statistic
-                            title="Total Interviews"
-                            value={selectedCandidate.totalAttempts}
-                            prefix={<TeamOutlined />}
-                          />
-                        </Col>
-                        <Col span={8}>
-                          <Statistic
-                            title="Best Score"
-                            value={selectedCandidate.bestScore || "N/A"}
-                            suffix="%"
-                            valueStyle={{ color: "#52c41a" }}
-                            prefix={<TrophyOutlined />}
-                          />
-                        </Col>
-                        <Col span={8}>
-                          <Statistic
-                            title="Average Score"
-                            value={selectedCandidate.avgScore || "N/A"}
-                            suffix="%"
-                            valueStyle={{ color: "#1890ff" }}
-                            prefix={<BarChartOutlined />}
-                          />
-                        </Col>
-                      </Row>
-                    </Card>
-
-                    {/* List of all interview attempts */}
-                    <Card
-                      title="Interview History"
-                      size="small"
-                      className="mt-4"
-                    >
-                      <List
-                        dataSource={selectedCandidate.allAttempts}
-                        renderItem={(attempt, index) => (
-                          <List.Item
-                            key={attempt.id || index}
-                            actions={[
-                              <Button
-                                key="view"
-                                type="link"
-                                onClick={() =>
-                                  handleViewAttemptDetails(attempt)
-                                }
-                              >
-                                View Details
-                              </Button>,
-                            ]}
-                          >
-                            <List.Item.Meta
-                              avatar={
-                                <Avatar
-                                  style={{
-                                    backgroundColor:
-                                      attempt.status === "Completed"
-                                        ? "#52c41a"
-                                        : "#1890ff",
-                                  }}
-                                >
-                                  #{attempt.attemptNumber || index + 1}
-                                </Avatar>
-                              }
-                              title={
-                                <div className="flex justify-between items-center">
-                                  <span>
-                                    {formatDate(
-                                      attempt.createdAt || attempt.interviewDate
-                                    )}
-                                  </span>
-                                  {attempt.score !== null &&
-                                    getScoreTag(attempt.score)}
-                                </div>
-                              }
-                              description={
-                                <div>
-                                  <div className="flex justify-between">
-                                    <span>
-                                      Status: {getStatusBadge(attempt.status)}
-                                    </span>
-                                    <span>
-                                      {attempt.answeredQuestions || 0}/
-                                      {attempt.totalQuestions || "?"} questions
-                                    </span>
-                                  </div>
-                                  {attempt.summary && (
-                                    <Paragraph
-                                      ellipsis={{ rows: 2 }}
-                                      className="text-xs mt-1 text-gray-600"
-                                    >
-                                      {attempt.summary}
-                                    </Paragraph>
-                                  )}
-                                </div>
-                              }
-                            />
-                          </List.Item>
-                        )}
-                      />
-                    </Card>
-                  </div>
-                ),
-              },
-              {
-                key: "2",
-                label: "Interview Details",
-                children: (
-                  <div>
-                    {selectedAttempt ? (
-                      <div>
-                        <Card
-                          title={`Interview #${
-                            selectedAttempt.attemptNumber || 1
-                          } Details`}
-                          size="small"
-                        >
-                          <div className="mb-4">
-                            <Row gutter={16}>
-                              <Col span={8}>
-                                <Statistic
-                                  title="Date"
-                                  value={formatDate(
-                                    selectedAttempt.createdAt ||
-                                      selectedAttempt.interviewDate
-                                  )}
-                                  valueStyle={{ fontSize: "14px" }}
-                                />
-                              </Col>
-                              <Col span={8}>
-                                <Statistic
-                                  title="Status"
-                                  value={selectedAttempt.status || "Unknown"}
-                                  valueStyle={{ fontSize: "14px" }}
-                                />
-                              </Col>
-                              <Col span={8}>
-                                <Statistic
-                                  title="Score"
-                                  value={selectedAttempt.score || "N/A"}
-                                  suffix="%"
-                                  valueStyle={{ fontSize: "14px" }}
-                                />
-                              </Col>
-                            </Row>
-                          </div>
-
-                          {selectedAttempt.summary && (
-                            <Card
-                              size="small"
-                              title="AI Summary"
-                              className="mb-4"
-                            >
-                              <Paragraph>{selectedAttempt.summary}</Paragraph>
-                            </Card>
-                          )}
-
-                          {/* Questions and Answers */}
-                          <Card
-                            size="small"
-                            title="Interview Transcript"
-                            className="mb-4"
-                          >
-                            {selectedAttempt.questions ? (
-                              selectedAttempt.questions.map((q, index) => (
-                                <div key={index} className="mb-4 border-b pb-4">
-                                  <Title level={5} className="mb-2">
-                                    Q{index + 1}: {q.question}
-                                  </Title>
-                                  <Tag
-                                    color={
-                                      q.difficulty === "Easy"
-                                        ? "green"
-                                        : q.difficulty === "Medium"
-                                        ? "blue"
-                                        : "red"
-                                    }
-                                  >
-                                    {q.difficulty}
-                                  </Tag>
-                                  <Tag>
-                                    Response time:{" "}
-                                    {formatDuration(q.responseTime)}
-                                  </Tag>
-
-                                  <div className="mt-2">
-                                    <Text strong>Candidate's Answer:</Text>
-                                    <div className="bg-gray-50 p-2 mt-1 rounded">
-                                      {q.answer || (
-                                        <Text italic>No answer provided</Text>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {q.evaluation && (
-                                    <div className="mt-2">
-                                      <Text strong>AI Evaluation:</Text>
-                                      <div className="mt-1">
-                                        <Tag
-                                          color={
-                                            q.score >= 80
-                                              ? "green"
-                                              : q.score >= 60
-                                              ? "blue"
-                                              : q.score >= 40
-                                              ? "orange"
-                                              : "red"
-                                          }
-                                        >
-                                          Score: {q.score}%
-                                        </Tag>
-                                        <div className="bg-gray-50 p-2 mt-1 rounded">
-                                          {q.evaluation}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))
-                            ) : (
-                              <Empty description="No question data available" />
-                            )}
-                          </Card>
-                        </Card>
-                      </div>
-                    ) : (
-                      <Empty description="Select an interview to view details" />
-                    )}
-                  </div>
-                ),
-              },
-            ]}
+          <Table
+            columns={columns}
+            dataSource={processedData}
+            rowKey="candidateEmail"
+            onChange={(pagination, filters, sorter) => {
+              dispatch({
+                type: "interviewer/setSort",
+                payload: {
+                  key: sorter.field || "bestScore",
+                  order: sorter.order || "descend",
+                },
+              });
+            }}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showTotal: (total) => `Total ${total} candidates`,
+              className: "!mt-4",
+            }}
+            locale={{
+              emptyText: (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description="No candidates found"
+                />
+              ),
+            }}
+            className="border-0"
           />
-        ) : (
-          <div>Loading candidate information...</div>
-        )}
-      </Drawer>
+        </Card>
+      </div>
     </div>
   );
 };

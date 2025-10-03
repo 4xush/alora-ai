@@ -344,7 +344,11 @@ const SummaryPage = () => {
           <Col xs={24} md={8} className="text-center">
             <Progress
               type="circle"
-              percent={finalScore || 0}
+              percent={
+                questions.length > 0
+                  ? Math.round((finalScore / (questions.length * 10)) * 100)
+                  : 0
+              }
               format={(percent) => (
                 <div className="flex flex-col items-center">
                   <span className="text-2xl font-bold">{percent}</span>
@@ -355,9 +359,9 @@ const SummaryPage = () => {
                 "0%": "#108ee9",
                 "100%": "#87d068",
               }}
-              // strokeWidth={10}              
+              // strokeWidth={10}
               size={160}
-              style={{ fontSize: '14px' }}
+              style={{ fontSize: "14px" }}
             />
           </Col>
 
