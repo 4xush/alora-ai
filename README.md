@@ -1,4 +1,4 @@
-# InterviewPro - Modern Technical Interview Platform
+# Alora-Ai - Modern Technical Interview Platform
 
 A comprehensive technical interview platform designed to streamline the interview process for both candidates and hiring teams. The application provides automated resume parsing, personalized technical assessments, and detailed analytics to help companies make better hiring decisions while giving candidates a fair, consistent interview experience.
 
@@ -206,7 +206,7 @@ The application has been transformed from a prototype to a production-ready syst
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/interviewpro.git
+git clone https://github.com/4xush/alora-ai.git
 
 # Install dependencies
 cd interviewpro
@@ -260,16 +260,6 @@ The resume parsing can be extended by modifying:
 - `/services/resumeParser.js` for document processing
 - `/services/aiService.js` for information extraction
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Blank Screen After Navigation**: Usually caused by state synchronization issues. Check Redux state and component key props.
-
-2. **Resume Upload Failures**: Verify file format support and size limits in the ResumeUploader component.
-
-3. **Question Generation Failures**: Check AI service connectivity and prompt templates.
-
 ## Contributing
 
 We welcome contributions to InterviewPro! Please follow these steps:
@@ -281,3 +271,5 @@ We welcome contributions to InterviewPro! Please follow these steps:
 5. Open a Pull Request
 
 _Transform your interview process with AI-powered intelligence and comprehensive analytics._
+
+_Developed by Ayush :)_

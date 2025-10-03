@@ -53,7 +53,7 @@ const DashboardPage = () => {
   const {
     profile,
     resume,
-    pastInterviews,
+    pastInterviews: allPastInterviews,
     finalScore,
     finalSummary,
     status,
@@ -61,6 +61,15 @@ const DashboardPage = () => {
     handleViewResults,
     handleResumeInterview,
   } = useInterviewFlow();
+
+  // Filter pastInterviews to show only current user's interviews
+  const pastInterviews =
+    allPastInterviews?.filter(
+      (interview) =>
+        interview.profile?.email === profile?.email ||
+        interview.candidateEmail === profile?.email ||
+        (!interview.profile?.email && !interview.candidateEmail) // fallback for older data without email
+    ) || [];
 
   const { resumableInterviewInfo } = useInterviewPersistence();
   const latestInterview = useSelector(selectLatestInterview);
