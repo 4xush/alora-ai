@@ -971,21 +971,83 @@ const InterviewerPage = () => {
                               </Text>
                             }
                             description={
-                              <div className="space-y-2">
+                              <div className="space-y-3">
+                                {/* Question Details */}
+                                {(item.level ||
+                                  item.topic ||
+                                  item.timeAllocated) && (
+                                  <div className="flex gap-2 mb-2">
+                                    {item.level && <Tag>{item.level}</Tag>}
+                                    {item.topic && (
+                                      <Tag color="blue">{item.topic}</Tag>
+                                    )}
+                                    {item.timeAllocated && (
+                                      <Tag color="green">
+                                        {item.timeAllocated}s allocated
+                                      </Tag>
+                                    )}
+                                    {item.timeSpent && (
+                                      <Tag color="orange">
+                                        {item.timeSpent}s spent
+                                      </Tag>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Candidate's Answer */}
                                 <div>
-                                  <Text className="text-xs text-gray-600">
-                                    Answer:
+                                  <Text className="text-xs text-gray-600 font-medium">
+                                    Candidate's Answer:
                                   </Text>
-                                  <div className="text-sm">
-                                    {item.a || "No answer provided"}
+                                  <div
+                                    className={`text-sm mt-1 p-2 rounded ${
+                                      item.wasSkipped ||
+                                      !item.a ||
+                                      item.a === "[SKIPPED]"
+                                        ? "bg-orange-50 border border-orange-200"
+                                        : item.score < 6
+                                        ? "bg-red-50 border border-red-200"
+                                        : item.score >= 8
+                                        ? "bg-green-50 border border-green-200"
+                                        : "bg-yellow-50 border border-yellow-200"
+                                    }`}
+                                  >
+                                    {item.wasSkipped ||
+                                    !item.a ||
+                                    item.a === "[SKIPPED]" ? (
+                                      <span className="text-orange-600 italic">
+                                        Question was skipped
+                                      </span>
+                                    ) : (
+                                      item.a || "No answer provided"
+                                    )}
                                   </div>
                                 </div>
+
+                                {/* Correct Answer - Show for wrong/skipped answers */}
+                                {(item.score < 8 ||
+                                  item.wasSkipped ||
+                                  !item.a ||
+                                  item.a === "[SKIPPED]") &&
+                                  item.correctAnswer && (
+                                    <div>
+                                      <Text className="text-xs text-green-600 font-medium">
+                                        <CheckCircleOutlined className="mr-1" />
+                                        Correct Answer:
+                                      </Text>
+                                      <div className="text-sm mt-1 p-2 bg-green-50 border border-green-200 rounded">
+                                        {item.correctAnswer}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                {/* AI Feedback */}
                                 {item.explanation && (
                                   <div>
-                                    <Text className="text-xs text-gray-600">
-                                      Feedback:
+                                    <Text className="text-xs text-blue-600 font-medium">
+                                      AI Feedback:
                                     </Text>
-                                    <div className="text-sm text-gray-700">
+                                    <div className="text-sm mt-1 p-2 bg-blue-50 border border-blue-200 rounded">
                                       {item.explanation}
                                     </div>
                                   </div>

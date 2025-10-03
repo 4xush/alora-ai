@@ -6,14 +6,14 @@ const interviewerSlice = createSlice({
   initialState: {
     candidates: [], // Simplified structure - one candidate can have multiple attempts
     search: '',
-    sortKey: 'name',
-    sortOrder: 'ascend',
+    sortKey: 'interviewDate',
+    sortOrder: 'descend',
   },
   reducers: {
     // SIMPLIFIED: Single action to sync interview state
     syncInterviewState(state, action) {
       const { interviewId, profile, status, additionalData = {} } = action.payload;
-      
+
       console.log('🔄 Syncing interview state:', { interviewId, status });
 
       if (!interviewId || !profile?.email) {
@@ -23,11 +23,11 @@ const interviewerSlice = createSlice({
 
       // Find existing candidate by email
       const existingCandidateIndex = state.candidates.findIndex(c => c.email === profile.email);
-      
+
       if (existingCandidateIndex >= 0) {
         // Update existing candidate
         const candidate = state.candidates[existingCandidateIndex];
-        
+
         // Initialize attempts if needed
         if (!candidate.attempts) {
           candidate.attempts = [];
@@ -35,7 +35,7 @@ const interviewerSlice = createSlice({
 
         // Find existing attempt by interview ID
         const attemptIndex = candidate.attempts.findIndex(a => a.id === interviewId);
-        
+
         if (attemptIndex >= 0) {
           // Update existing attempt
           candidate.attempts[attemptIndex] = {
@@ -100,7 +100,7 @@ const interviewerSlice = createSlice({
     // Clean up abandoned attempts (for when user abandons interview)
     removeAbandonedAttempt(state, action) {
       const { interviewId } = action.payload;
-      
+
       console.log('🧹 Removing abandoned attempt:', interviewId);
 
       if (!interviewId) return;
@@ -108,16 +108,16 @@ const interviewerSlice = createSlice({
       state.candidates.forEach(candidate => {
         if (candidate.attempts) {
           const initialCount = candidate.attempts.length;
-          
+
           // Remove only in-progress attempts with matching ID
-          candidate.attempts = candidate.attempts.filter(attempt => 
+          candidate.attempts = candidate.attempts.filter(attempt =>
             !(attempt.id === interviewId && attempt.status === 'In Progress')
           );
 
           // If an attempt was removed, recalculate candidate summary
           if (candidate.attempts.length < initialCount) {
             console.log('✅ Removed abandoned attempt for:', candidate.email);
-            
+
             // Recalculate latest score and status
             const completedAttempts = candidate.attempts
               .filter(a => a.status === "Completed" && a.score != null)
@@ -141,7 +141,7 @@ const interviewerSlice = createSlice({
 
       // Remove candidates with no attempts
       state.candidates = state.candidates.filter(c => c.attempts && c.attempts.length > 0);
-      
+
       // Also clean up through sync service
       interviewSyncService.cleanupInterviewProgress(interviewId);
     },
@@ -165,12 +165,12 @@ const interviewerSlice = createSlice({
   },
 });
 
-export const { 
-  syncInterviewState, 
-  removeAbandonedAttempt, 
-  setSearch, 
-  setSort, 
-  clearAllCandidates 
+export const {
+  syncInterviewState,
+  removeAbandonedAttempt,
+  setSearch,
+  setSort,
+  clearAllCandidates
 } = interviewerSlice.actions;
 
 export default interviewerSlice.reducer;

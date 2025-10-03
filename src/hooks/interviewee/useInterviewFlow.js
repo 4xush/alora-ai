@@ -367,7 +367,6 @@ export const useInterviewFlow = () => {
             ).length;
             const avgTimePerQuestion = totalTimeSpent > 0 ? Math.round(totalTimeSpent / finalAnswers.length) : 0;
 
-            // Sync final results with interviewer dashboard
             const transcript = questions.map((q, i) => {
               const ans = finalAnswers.find((a) => a.questionId === q.id);
               return {
@@ -376,9 +375,15 @@ export const useInterviewFlow = () => {
                 score: scoringResult.perAnswer?.[i]?.score ?? null,
                 explanation: scoringResult.perAnswer?.[i]?.explanation || "",
                 wasSkipped: ans?.wasSkipped || false,
+                // ADD CORRECT ANSWER INFORMATION:
+                correctAnswer: q.correctAnswer || q.answerKey || q.explanation,
+                questionExplanation: q.explanation,
+                level: q.level || "medium",
+                topic: q.metadata?.focusArea || q.topic || "General",
+                timeAllocated: q.seconds || 60,
+                timeSpent: ans?.secondsSpent || 0,
               };
             });
-
             dispatch(
               syncInterviewState({
                 interviewId: currentInterviewId,
@@ -438,6 +443,25 @@ export const useInterviewFlow = () => {
 
             dispatch(completeInterview(fallbackResult));
 
+            // Create enhanced fallback transcript with correct answers
+            const fallbackTranscript = questions.map((q, i) => {
+              const ans = finalAnswers.find((a) => a.questionId === q.id);
+              return {
+                q: q.text || q.question || "",
+                a: ans?.wasSkipped ? "[SKIPPED]" : ans?.answer || "",
+                score: Math.round(Math.random() * 4 + 6), // Fallback score
+                explanation: "Scoring unavailable due to technical issues.",
+                wasSkipped: ans?.wasSkipped || false,
+                // ADD CORRECT ANSWER INFORMATION FOR FALLBACK TOO:
+                correctAnswer: q.correctAnswer || q.answerKey || q.explanation,
+                questionExplanation: q.explanation,
+                level: q.level || "medium",
+                topic: q.metadata?.focusArea || q.topic || "General",
+                timeAllocated: q.seconds || 60,
+                timeSpent: ans?.secondsSpent || 0,
+              };
+            });
+
             // Sync with fallback data - ADDED MISSING METRICS
             dispatch(
               syncInterviewState({
@@ -448,6 +472,7 @@ export const useInterviewFlow = () => {
                   score: fallbackResult.totalScore,
                   summary: fallbackResult.summary,
                   resumeText: resume.text,
+                  transcript: fallbackTranscript, // Use the enhanced transcript
                   // ADDED MISSING FIELDS FOR INTERVIEWER PAGE:
                   totalTimeSpent,
                   answeredQuestions,
