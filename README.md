@@ -280,34 +280,4 @@ We welcome contributions to InterviewPro! Please follow these steps:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-Built with ❤️ by The InterviewPro Team
-
-- **Questions Not Loading**: Verify internet connection and API key validity
-- **Data Loss**: Browser storage might be full; try clearing other site data
-
-### Getting Help
-
-- Check the [Issues](../../issues) page for known problems
-- Review the [Production Plan](docs/PRODUCTION_PLAN.md) for technical details
-- See [Fixes Summary](docs/FIXES_SUMMARY.md) for recent improvements
-
-## 🏆 Acknowledgments
-
-- **Google Gemini API** for AI-powered question generation and scoring
-- **Ant Design** for the comprehensive UI component library
-- **Redux Toolkit** for efficient state management
-- **Vite** for fast development and building
-
----
-
-**Status**: ✅ Production Ready (Frontend)  
-**Last Updated**: December 2024  
-**Maintainers**: Development Team
-
 _Transform your interview process with AI-powered intelligence and comprehensive analytics._

@@ -355,8 +355,9 @@ const SummaryPage = () => {
                 "0%": "#108ee9",
                 "100%": "#87d068",
               }}
-              strokeWidth={10}
+              // strokeWidth={10}              
               size={160}
+              style={{ fontSize: '14px' }}
             />
           </Col>
 

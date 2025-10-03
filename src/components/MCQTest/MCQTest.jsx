@@ -320,7 +320,11 @@ const MCQTest = ({ onAnswer }) => {
             "100%": "#4f46e5",
           }}
           className="mb-0"
-          strokeWidth={4}
+          // strokeWidth={4}
+          size={[320, 4]} // Replace strokeWidth with size prop
+          style={{
+            "--ant-progress-line-path-width": "4px", // Optional: for consistent thickness
+          }}
         />
       </div>
 
