@@ -19,18 +19,19 @@ A comprehensive technical interview platform designed to streamline the intervie
 
 ### For Hiring Teams (Interviewers)
 
-- 👥 **Candidate Management**: Track and manage all interview candidates in one place
+- 👥 **Candidate-Centric Dashboard**: View and manage candidates with their aggregated performance metrics
+- 🔍 **Candidate Profiles**: Dedicated pages for each candidate showing all their interview attempts
 - 📋 **Detailed Analytics**: View comprehensive interview results with question-by-question breakdowns
-- 🔍 **Multiple Attempt Tracking**: See how candidates improve over multiple interview sessions
-- 📊 **Resume Analysis**: Quickly review candidate qualifications with AI-assisted parsing
-- � **Professional Dashboard**: Filter, sort, and search candidates efficiently
+- � **Performance Tracking**: Track candidate improvements across multiple interview sessions
+- � **Advanced Filtering & Sorting**: Sort by best scores, filter by status, and search candidates efficiently
 
 ### Technical Highlights
 
 - ⚡ **Modern Tech Stack**: React 18, Redux Toolkit, Ant Design
-- 🔄 **State Management**: Centralized state for predictable data flow
+- 🔄 **Advanced State Management**: Centralized state with candidate-centric data modeling
 - 🎨 **Professional UI**: Clean, intuitive interface with responsive design
 - 🧠 **AI Integration**: Advanced AI for resume analysis and question generation
+- 🔀 **Multi-Level Navigation**: Two-tier dashboard with candidate list and detailed profile pages
 - 📱 **Mobile Responsive**: Works seamlessly across all devices
 - 🔒 **Data Persistence**: Reliable localStorage with Redux-persist
 
@@ -86,14 +87,18 @@ npm run dev
 ### For Interviewers
 
 1. **Log in to the Interviewer Portal**: Access your dedicated dashboard
-2. **Review Candidates**: See all candidates who have completed interviews
-
+2. **Review Candidates**: See all unique candidates with their best performance metrics
+   - Sort by best score, average score, or last interview date
    - Search by name or email
-
-3. **Analyze Performance**
-   - Click on any candidate to see detailed results
-   - Review interview transcripts
+   - Filter by status (completed, in progress)
+3. **Analyze Individual Candidates**
+   - Click on any candidate to view their dedicated profile page
+   - See all interview attempts for that specific candidate
+   - Compare performance across multiple interview sessions
+4. **Deep-Dive Into Attempts**
+   - View detailed question-by-question breakdowns
    - Access AI-generated feedback and scoring
+   - Review complete interview transcripts
 
 ## 🏗️ Architecture
 
@@ -139,11 +144,12 @@ InterviewPro is built with a modern React frontend and uses Redux for state mana
 /Timer # Interview timing components
 /pages # Page-level components
 IntervieweePage.jsx # Main candidate experience
-InterviewerPage.jsx # Interviewer dashboard
+InterviewerPage.jsx # Candidate-centric dashboard
+CandidatePage.jsx # Individual candidate profile page
 LandingPage.jsx # Application entry point
 /store # Redux state management
 intervieweeSlice.js # Candidate state
-interviewerSlice.js # Interviewer state
+interviewerSlice.js # Interviewer state with candidate-centric data model
 store.js # Redux store configuration
 /services # API and service integrations
 /utils # Utility functions
@@ -163,9 +169,10 @@ The application uses Redux with several main slices:
    - Results and scoring
 
 2. **interviewerSlice**: Manages the interviewer experience including:
-   - Candidate tracking with multiple interview attempts
-   - Filtering and search functionality
-   - Sorting and organization of candidate data
+   - Candidate-centric data model with nested attempts structure
+   - Filtering and search functionality at both candidate and attempt levels
+   - Advanced sorting with best/average scores and recent activity
+   - Dynamic route-based candidate filtering
 
 3. **settingsSlice**: Handles application configuration
 
@@ -179,20 +186,32 @@ The application uses Redux with several main slices:
    - Error handling at each step with fallbacks
 
 2. **Interviewer Dashboard Flow**:
-   - Candidate listing → Filtering/Sorting → Candidate Detail View
-   - Multiple interview tracking for repeat candidates
-   - Data visualization for performance metrics
+   - Candidate listing → Candidate Profile → Interview Detail View
+   - Two-level architecture with candidate-centric organization
+   - Multiple interview tracking with aggregate statistics
+   - Dynamic route-based filtering via `/interviewer/candidate/:email`
+   - Data visualization for performance metrics and comparison
 
 ## Recent Improvements
 
 The application has been transformed from a prototype to a production-ready system:
 
 ### Critical Fixes Implemented
+- **Candidate-Centric Dashboard**: Restructured dashboard to focus on unique candidates rather than sessions
+- **Multi-Level Navigation**: Two-tier architecture with candidate list and detailed profile pages
 - **Multiple Interview Attempts**: Candidates can now take multiple interviews with history preserved
+- **Dynamic Route Filtering**: URL-based filtering with `/interviewer/candidate/:email` route structure
 - **State Management Overhaul**: Eliminated state inconsistencies and implemented proper Redux patterns
 - **Interview Flow Fixes**: Smooth navigation and proper validation between steps
 - **Enhanced Components**: Professional UI with improved user experience
 - **Results Analysis**: Comprehensive scoring with detailed feedback
+
+### Interviewer Dashboard Restructure
+- **Two-Level Architecture**: Main dashboard shows candidate list, clicking a candidate shows their profile
+- **Candidate-Centric Views**: Data organized by unique candidates rather than individual sessions
+- **Aggregated Metrics**: Best scores, average scores, and performance trends for each candidate
+- **URL-Based Navigation**: Clean routes with `/interviewer/candidate/:email` structure
+- **Contextual Information**: Stats and metrics filtered to the currently viewed candidate
 
 ### Performance Improvements
 - Reduced unnecessary re-renders with proper memoization
